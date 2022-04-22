@@ -3,11 +3,11 @@ import time
 import datetime
 import numpy as onp
 import argparse
-from typing import Any
+from typing import Any, Callable
 
 import jax
 import jax.numpy as jnp
-from jax import random
+from jax import grad, random
 from jax import lax, value_and_grad
 from jax.nn import softmax
 from jax.tree_util import tree_flatten, tree_unflatten
@@ -23,6 +23,7 @@ from huxel.utils import (
     get_huckel_params,
     get_initial_params_b,
     get_initial_params_b_benzene,
+    _f_obj, get_external_field, get_molecule
 )
 from huxel.huckel import f_homo_lumo_gap, f_polarizability
 
@@ -31,45 +32,32 @@ from jax.config import config
 
 jax.config.update("jax_enable_x64", True)
 
+# one_hot --> pre softmax
+        
 
-def get_molecule(params_b, one_pi_elec):
-    norm_params_b = jax.tree_map(lambda x: softmax(x), params_b)
-    molecule_atoms = []
-    params_one_hot = params_b.copy()
-    for index, key in enumerate(norm_params_b):
-        imax = jnp.argmax(norm_params_b[key])
-        molecule_atoms.append(one_pi_elec[imax])
-        z = -35 * jnp.ones_like(norm_params_b[key])
-        z = z.at[imax].set(35.0)
-        params_one_hot[key] = z
-    return molecule_atoms, params_one_hot
-
-
-def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo'):
+def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo',external_field:float=None):
 
     rng = jax.random.PRNGKey(l)
     rng, subkey = jax.random.split(rng)
 
     params_extra = get_huckel_params()
-    print(params_extra)
 
-    params_b, subkey = get_initial_params_b(subkey, molec, params_extra["one_pi_elec"])
+    (params_b,params_fixed_atoms), subkey = get_initial_params_b(subkey, molec, params_extra["one_pi_elec"])
+    params_total = {**params_b,**params_fixed_atoms}
 
     init_molecule, init_params_one_hot = get_molecule(
-        params_b, params_extra["one_pi_elec"]
+        params_total, params_extra["one_pi_elec"]
     )
 
     f_beta = _f_beta("c")
+    f_obj_all = _f_obj(objective)
+    external_field = get_external_field(objective,external_field)
+    # print(external_field)
+    # print(value_and_grad(f_obj)(params_b,params_fixed_atoms,params_extra, molec, f_beta,external_field))
+    # assert 0
+    f_obj = lambda w: f_obj_all(w,params_fixed_atoms,params_extra, molec, f_beta,external_field)
 
-    if objective == 'homo_lumo':
-        y0_ev = f_homo_lumo_gap(params_b, params_extra, molec, f_beta)
-        f_obj = lambda w: f_homo_lumo_gap(w, params_extra, molec, f_beta)
-        objective_name = 'HOMO-LUMO'
-    elif objective == 'polarizability':
-        external_field = 0.01*jnp.ones(3)# [V/A] from J. Chem. Phys. 129, 044106 (2008)
-        y0_ev = f_polarizability(params_b, params_extra, molec, f_beta,external_field)
-        f_obj = lambda w: -1.*f_polarizability(w, params_extra, molec, f_beta, external_field)
-        objective_name = 'Polarizability'
+    # -----------------------------------------------------------------
 
 
     def opt_gd(params_b: Any, ntr: int, lr: 0.1):
@@ -150,7 +138,7 @@ def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo'):
             opt_res = opt.run(params_b)
             params_b = opt_res[0]
             opt_molecule, params_opt_one_hot = get_molecule(
-                params_b, params_extra["one_pi_elec"]
+                {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
             )
             y_obj = f_obj(params_b)
             y_obj_one_hot = f_obj(params_opt_one_hot)

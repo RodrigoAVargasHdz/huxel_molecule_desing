@@ -12,7 +12,7 @@ from huxel.comb_benzene import _all_benzene, single_test
 
 
 def main():
-    atom_types = ["C", "C", "C", "C", "C", "C"]
+    atom_types = ["X", "C", "C", "C", "X", "C"]
     smile = "C6"
 
     atom_t = ["P1", "O1", "Si", "Si", "O1", "P1"]
@@ -49,7 +49,8 @@ def main():
         xyz
     )
     
-    _opt(2, molec,'polarizability')#, 
+    _opt(0, molec)#,'polarizability' 
+    # _opt(2, molec,'polarizability',0.01)#,'polarizability' 
 
     # for l in range(0, 20):
     #     _opt(l, molec,'polarizability')
