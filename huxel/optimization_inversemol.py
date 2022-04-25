@@ -1,6 +1,7 @@
 import os
 import time
 import datetime
+from tracemalloc import get_object_traceback
 import numpy as onp
 import argparse
 from typing import Any, Callable
@@ -23,8 +24,10 @@ from huxel.utils import (
     get_huckel_params,
     get_initial_params_b,
     get_initial_params_b_benzene,
-    _f_obj, get_external_field, get_molecule
+    _f_obj, get_external_field, get_molecule,
+    get_objective_name
 )
+from huxel.minimize import opt_obj
 from huxel.huckel import f_homo_lumo_gap, f_polarizability
 
 
@@ -49,135 +52,34 @@ def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo',external_f
         params_total, params_extra["one_pi_elec"]
     )
 
+    objective_name = get_objective_name(objective)
     f_beta = _f_beta("c")
     f_obj_all = _f_obj(objective)
     external_field = get_external_field(objective,external_field)
-    # print(external_field)
-    # print(value_and_grad(f_obj)(params_b,params_fixed_atoms,params_extra, molec, f_beta,external_field))
-    # assert 0
+
     f_obj = lambda w: f_obj_all(w,params_fixed_atoms,params_extra, molec, f_beta,external_field)
-
+    y_obj_initial = f_obj(params_b)
     # -----------------------------------------------------------------
-
-
-    def opt_gd(params_b: Any, ntr: int, lr: 0.1):
-        v_and_g_obj = value_and_grad(f_obj)
-
-        def inner_update(p, lr):
-            v, grads = v_and_g_obj(p)
-            inner_sgd_fn = lambda g, state: (state - lr * g)
-            return jax.tree_multimap(inner_sgd_fn, grads, p), v
-
-        params_b_opt0 = params_b.copy()
-        hl_gap0 = f_obj(params_b)
-        opt_molec0 = get_molecule(params_b, params_extra["one_pi_elec"])
-
-        print(f"0, {hl_gap0}, {opt_molec0}")
-        for itr in range(ntr):
-            params_b, hl_gap = inner_update(params_b, lr)
-            opt_molecule = get_molecule(params_b, params_extra["one_pi_elec"])
-
-            if hl_gap < hl_gap0:
-                params_b_opt0 = params_b.copy()
-                hl_gap0 = hl_gap
-            if opt_molecule != opt_molec0:
-                opt_molec0 = opt_molecule
-                print(f"{itr}, {hl_gap}, {opt_molecule}")
-            elif itr % 10 == 0:
-                print(f"{itr}, {hl_gap}, {opt_molecule}")
-
-        return params_b_opt0, get_molecule(params_b_opt0, params_extra["one_pi_elec"])
-
-    def opt_adam(params_b: Any, ntr: int, lr: 0.1):
-        v_and_g_obj = value_and_grad(f_obj)
-
-        optimizer = optax.adam(learning_rate=lr)
-        opt_state = optimizer.init(params_b)
-
-        params_b_opt0 = params_b.copy()
-        hl_gap0 = f_obj(params_b)
-        opt_molec0, _ = get_molecule(params_b, params_extra["one_pi_elec"])
-
-        print(f"0, {hl_gap0}, {opt_molec0}")
-        for itr in range(ntr):
-            hl_gap, g_params_b = v_and_g_obj(params_b)
-            updates, opt_state = optimizer.update(g_params_b, opt_state)
-            params_b = optax.apply_updates(params_b, updates)
-            opt_molecule = get_molecule(params_b, params_extra["one_pi_elec"])
-
-            if hl_gap < hl_gap0:
-                params_b_opt0 = params_b.copy()
-                hl_gap0 = hl_gap
-            if opt_molecule != opt_molec0:
-                opt_molec0 = opt_molecule
-                print(f"{itr}, {hl_gap}, {opt_molecule} *")
-            elif itr % 25 == 0:
-                print(f"{itr}, {hl_gap}, {opt_molecule}")
-
-        return params_b_opt0, get_molecule(params_b_opt0, params_extra["one_pi_elec"])
-
-    def opt_jaxopt(params_b_init):
-        def callbackF(xi):
-            print(xi)
-            global Nfeval
-            opt_molecule = get_molecule(xi, params_extra["one_pi_elec"])
-            print("{0:4d}   {s}   {4: 3.6f}".format(Nfeval, opt_molecule, f_obj(xi)))
-            Nfeval += 1
-
-        # scipy JAXOPT
-        opt = ScipyMinimize(
-            method="BFGS",
-            fun=f_obj,
-            jit=False,
-            options={"maxiter": 1},
-        )
-
-        params_b = params_b_init
-        r = {}
-        for i in range(20):
-            opt_res = opt.run(params_b)
-            params_b = opt_res[0]
-            opt_molecule, params_opt_one_hot = get_molecule(
-                {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
-            )
-            y_obj = f_obj(params_b)
-            y_obj_one_hot = f_obj(params_opt_one_hot)
-            print(i, y_obj, opt_molecule, y_obj_one_hot)  # opt_res,
-            print(opt_res)
-            r.update(
-                {
-                    i: {
-                        "molecule": opt_molecule,
-                        "params_b": params_b,
-                        "objective": y_obj,
-                        "objective_one_hot": y_obj_one_hot,
-                    }
-                }
-            )
-
-        params_b_opt = opt_res[0]
-
-        opt_molecule, _ = get_molecule(params_b_opt, params_extra["one_pi_elec"])
-        y_ev = f_obj(params_b_opt)
-        return params_b_opt, opt_molecule, r
 
     # opt_gd(params_b, 1000, 0.5)
     # opt_adam(params_b, 1000, 0.1)
-    params_b_opt, opt_molecule, r_dic = opt_jaxopt(params_b)
+    
+    for _opt in ['BGFS','GD','Adam']:
+        opt_obj(f_obj,params_b,params_fixed_atoms,params_extra,_opt) #params_b_opt, opt_molecule, r_dic = 
     # print(r_dic)
 
-    jnp.save(
-        f"/h/rvargas/huxel/Results_polarizability_X6/molecule_opt_{l}.npy",
-        r_dic,
-        allow_pickle=True,
-    )
+    # jnp.save(
+    #     f"/h/rvargas/huxel/Results_polarizability_X6/molecule_opt_{l}.npy",
+    #     r_dic,
+    #     allow_pickle=True,
+    # )
     # jnp.save(f"molecule_opt_benzene.npy", r_dic, allow_pickle=True)
 
     norm_params_b_opt = jax.tree_map(lambda x: softmax(x), params_b_opt)
     y_ev = f_obj(params_b_opt)
 
     print(f"Molecule with min {objective_name} gap, l = {l}")
-    print(f"(initial) {objective_name}:", y0_ev)
+    print(f"(initial) {objective_name}:", y_obj_initial)
     print(init_molecule)
     print(f"(opt) {objective_name}:", y_ev)
     print(opt_molecule)

@@ -129,6 +129,12 @@ def get_external_field(objective:str='homo_lumo',magnitude:Any=None):
         if magnitude == None:
             return None   
 
+def get_objective_name(objective:str):
+    if objective == 'homo_lumo':
+        return 'HOMO-LUMO'
+    elif objective == 'polarizability':
+        return 'Polarizability'
+
 
 # OLD
 
