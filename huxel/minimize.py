@@ -19,11 +19,10 @@ import optax
 from huxel.utils import get_molecule
 
 
-def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BGFS',ntr:int=15,lr:float=2E-2):
+def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BGFS',ntr:int=15,lr:float=2E-1):
     opt_step = wrapper_opt_method(f_obj,opt_method,lr)
     params_b = params_b_init
-    print(params_b)
-    print(jax.tree_map(lambda x: jax.nn.softmax(x), params_b))
+
     r = {}
     params_b_opt = params_b_init.copy()
     y_obj_opt = jnp.inf
@@ -59,7 +58,23 @@ def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra
     return params_b_opt, molecule_opt, r
 
 
-def wrapper_opt_method(f_obj:Callable,method:str='BGFS',lr:float=2E-2):
+def get_max(x:dict):
+    flat, tree = jax.tree_flatten(x)
+    return jnp.max(jnp.asarray(flat))
+def get_sum(x:dict):
+    flat, tree = jax.tree_flatten(x)
+    return jnp.sum(jnp.asarray(flat))
+
+def f_obj_reg(f_obj:Callable):
+    def wrapper(params_b:Any,*args):
+        norm_parmas_b = jax.tree_map(lambda x: jnp.linalg.norm(x,ord=1), params_b)    
+        max_norm_parmas_b = get_max(jax.lax.stop_gradient(norm_parmas_b))
+        # reg_coeff = get_sum(norm_parmas_b) 
+        return f_obj(params_b) + get_sum(norm_parmas_b)
+    return wrapper
+# f_obj_new = lambda params_b: f_obj(params_b) + f_obj_reg(params_b)
+
+def wrapper_opt_method(f_obj:Callable,method:str='BGFS',lr:float=2E-1):
     if method == 'BGFS':
         def wrapper(params_b:Any,*args):
                 optimizer = ScipyMinimize(
@@ -91,79 +106,3 @@ def wrapper_opt_method(f_obj:Callable,method:str='BGFS',lr:float=2E-2):
                 return optax.apply_updates(params_b, updates), y_obj
             return adam_step(params_b)
         return wrapper
-
-    # def opt_adam(params_b: Any, ntr: int, lr: 0.1):
-    #     v_and_g_obj = value_and_grad(f_obj)
-
-    #     optimizer = optax.adam(learning_rate=lr)
-    #     opt_state = optimizer.init(params_b)
-
-    #     params_b_opt0 = params_b.copy()
-    #     hl_gap0 = f_obj(params_b)
-    #     opt_molec0, _ = get_molecule(params_b, params_extra["one_pi_elec"])
-
-    #     print(f"0, {hl_gap0}, {opt_molec0}")
-    #     for itr in range(ntr):
-    #         hl_gap, g_params_b = v_and_g_obj(params_b)
-    #         updates, opt_state = optimizer.update(g_params_b, opt_state)
-    #         params_b = optax.apply_updates(params_b, updates)
-    #         opt_molecule = get_molecule(params_b, params_extra["one_pi_elec"])
-
-    #         if hl_gap < hl_gap0:
-    #             params_b_opt0 = params_b.copy()
-    #             hl_gap0 = hl_gap
-    #         if opt_molecule != opt_molec0:
-    #             opt_molec0 = opt_molecule
-    #             print(f"{itr}, {hl_gap}, {opt_molecule} *")
-    #         elif itr % 25 == 0:
-    #             print(f"{itr}, {hl_gap}, {opt_molecule}")
-
-    #     return params_b_opt0, get_molecule(params_b_opt0, params_extra["one_pi_elec"])
-
-
-'''
-def opt_BFGS(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,ntr:int=20):
-    def callbackF(xi):
-        print(xi)
-        global Nfeval
-        opt_molecule = get_molecule(xi, params_extra["one_pi_elec"])
-        print("{0:4d}   {s}   {4: 3.6f}".format(Nfeval, opt_molecule, f_obj(xi)))
-        Nfeval += 1
-
-    # scipy JAXOPT
-    opt = ScipyMinimize(
-        method="BFGS",
-        fun=f_obj,
-        jit=False,
-        options={"maxiter": 1},
-    )
-
-    params_b = params_b_init
-    r = {}
-    for i in range(ntr):
-        opt_res = opt.run(params_b)
-        params_b = opt_res[0]
-        opt_molecule, params_opt_one_hot = get_molecule(
-            {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
-        )
-        y_obj = f_obj(params_b)
-        y_obj_one_hot = f_obj(params_opt_one_hot)
-        print(i, y_obj, opt_molecule, y_obj_one_hot)  # opt_res,
-        print(opt_res)
-        r.update(
-            {
-                i: {
-                    "molecule": opt_molecule,
-                    "params_b": params_b,
-                    "objective": y_obj,
-                    "objective_one_hot": y_obj_one_hot,
-                }
-            }
-        )
-
-    params_b_opt = opt_res[0]
-    {**params_b_opt,**params_fixed_atoms}    
-    opt_molecule, _ = get_molecule({**params_b_opt,**params_fixed_atoms}    , params_extra["one_pi_elec"])
-    y_ev = f_obj(params_b_opt)
-    return params_b_opt, opt_molecule, r
-'''
