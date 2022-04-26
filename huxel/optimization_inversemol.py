@@ -75,6 +75,7 @@ def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo',_minimizer
     y_ev = f_obj(params_b_opt)
 
     print(f"Molecule with min {objective_name} gap, l = {l}")
+    print(f"{objective}")
     print(f"(initial) {objective_name}:", y_obj_initial)
     print(init_molecule)
     print(f"(opt) {objective_name}:", y_ev)

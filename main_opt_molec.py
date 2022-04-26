@@ -12,11 +12,22 @@ from huxel.comb_benzene import _all_benzene, single_test
 
 
 def main():
+    parser = argparse.ArgumentParser(description="opt overlap NN")
+    parser.add_argument("--l", type=int, default=0, help="label")
+    parser.add_argument("--lr", type=float, default=2e-2, help="learning rate")
+    parser.add_argument("--obj", type=str, default="homo_lumo", help="objective type")
+    parser.add_argument("--opt", type=str, default="BFGS", help="objective type")
+    parser.add_argument("--extfield", type=float, default=0.01, help="external field for polarization")
+
+    args = parser.parse_args()
+    l = args.l
+    lr = args.lr
+    obj = args.obj
+    opt = args.opt
+    ext_field = args.extfield
+
     atom_types = ["X", "C", "C", "C", "X", "C"]
     smile = "C6"
-
-    atom_t = ["P1", "O1", "Si", "Si", "O1", "P1"]
-    smile = 0
 
     conectivity_matrix = jnp.array(
         [
@@ -49,15 +60,10 @@ def main():
         xyz
     )
     
-    # _opt(0, molec,'BFGS')#,'polarizability' 
-    _opt(0, molec,'polarizability','BFGS',0.01)#,'polarizability' 
-
-    # for l in range(0, 20):
-    #     _opt(l, molec,'polarizability')
-
-    # _all_benzene()
-
-    # single_test()
+    if obj == 'homo_lumo':
+        _opt(l, molec,obj,opt)
+    elif obj == 'polarizability':
+        _opt(l, molec,obj,opt,ext_field)
 
 
 if __name__ == "__main__":
