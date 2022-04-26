@@ -6,11 +6,13 @@ import numpy as onp
 import jax
 import jax.numpy as jnp
 from jax import jit
+from jax.nn import one_hot
 
 from huxel.molecule import myMolecule
 from huxel.parameters import H_X, H_XY, R_XY, Y_XY, N_ELECTRONS
 from huxel.parameters import h_x_tree, h_x_flat, h_xy_tree, h_xy_flat
 from huxel.parameters import f_dif_pytrees, f_div_pytrees
+from huxel.huckel import f_homo_lumo_gap, f_polarizability
 
 # r_dir = './Results_xyz_constant_random_params/'
 #'./Results_xyz/'
@@ -62,16 +64,23 @@ def get_huckel_params():
     return params_huckel
 
 
-def get_initial_params_b(subkey: Any, molec: Any, one_pi_elec: Any):
+def get_initial_params_b(subkey: Any, molec: Any, one_pi_elec: list):
 
     params_b = {}
+    params_fixed_atoms = {}
     for ni, c in enumerate(molec.atom_types):
-        b_temp = jax.random.uniform(
-            subkey, shape=(len(one_pi_elec),), minval=0.0, maxval=2.0
-        )
-        _, subkey = jax.random.split(subkey)
-        params_b.update({ni: b_temp})
-    return params_b, subkey
+        if c == 'X': 
+            b_temp = jax.random.uniform(
+                subkey, shape=(len(one_pi_elec),), minval=-5.0, maxval=5.0
+            )
+            _, subkey = jax.random.split(subkey)
+            params_b.update({ni: b_temp})
+        else:
+            i = one_pi_elec.index(c)
+            b_temp = one_hot(i,len(one_pi_elec))
+            params_fixed_atoms.update({ni:b_temp})
+
+    return (params_b,params_fixed_atoms), subkey
 
 
 def get_initial_params_b_benzene(subkey: Any, molec: Any, one_pi_elec: Any):
@@ -84,6 +93,47 @@ def get_initial_params_b_benzene(subkey: Any, molec: Any, one_pi_elec: Any):
         # )
         params_b.update({ni: b_temp})
     return params_b, subkey
+
+
+def get_molecule(params_b, one_pi_elec):
+    norm_params_b = jax.tree_map(lambda x: jax.nn.softmax(x), params_b)
+    molecule_atoms = []
+    params_one_hot = params_b.copy()
+    for index, key in enumerate(norm_params_b):
+        imax = jnp.argmax(norm_params_b[key])
+        molecule_atoms.append(one_pi_elec[imax])
+        z = -35 * jnp.ones_like(norm_params_b[key])
+        z = z.at[imax].set(35.0)
+        params_one_hot[key] = z
+    return molecule_atoms, params_one_hot
+
+def _f_obj(objective:str):
+    if objective == 'homo_lumo':
+        def wrapper(params_b:Any,*args):
+            args_new = {**params_b,**args[0]}
+            return f_homo_lumo_gap(args_new,*args[1:-1])
+        return wrapper  
+    elif objective == 'polarizability':
+        def wrapper(params_b:Any,*args):
+            args_new = {**params_b,**args[0]}
+            return -f_polarizability(args_new,*args[1:])
+        return wrapper  
+
+def get_external_field(objective:str='homo_lumo',magnitude:Any=None):
+    if objective == 'polarizability':
+        if isinstance(magnitude, float):
+            return magnitude*jnp.ones(3)
+        elif isinstance(magnitude, list):
+            return jnp.asarray(magnitude)
+    else:
+        if magnitude == None:
+            return None   
+
+def get_objective_name(objective:str):
+    if objective == 'homo_lumo':
+        return 'HOMO-LUMO'
+    elif objective == 'polarizability':
+        return 'Polarizability'
 
 
 # OLD
@@ -412,3 +462,4 @@ def update_params_all(params):
         params["alpha"], params["beta"], h_x, h_xy, params["r_xy"], params["y_xy"]
     )
     return new_params
+
