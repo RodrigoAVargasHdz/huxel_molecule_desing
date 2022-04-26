@@ -71,7 +71,7 @@ def get_initial_params_b(subkey: Any, molec: Any, one_pi_elec: list):
     for ni, c in enumerate(molec.atom_types):
         if c == 'X': 
             b_temp = jax.random.uniform(
-                subkey, shape=(len(one_pi_elec),), minval=0.0, maxval=2.0
+                subkey, shape=(len(one_pi_elec),), minval=-5.0, maxval=5.0
             )
             _, subkey = jax.random.split(subkey)
             params_b.update({ni: b_temp})

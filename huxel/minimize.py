@@ -19,28 +19,47 @@ import optax
 from huxel.utils import get_molecule
 
 
-def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BGFS',ntr:int=5,lr:float=1E-3):
+def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BGFS',ntr:int=15,lr:float=2E-2):
     opt_step = wrapper_opt_method(f_obj,opt_method,lr)
     params_b = params_b_init
-    
+    print(params_b)
+    print(jax.tree_map(lambda x: jax.nn.softmax(x), params_b))
     r = {}
     params_b_opt = params_b_init.copy()
     y_obj_opt = jnp.inf
-    for itr in range(0,ntr):
+    molecule_opt = []
+    for itr in range(0,ntr+1):
         params_b, y_obj = opt_step(params_b)
-        opt_molecule, params_opt_one_hot = get_molecule(
+        molecule_itr, params_b_one_hot = get_molecule(
             {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
         )
         y_obj = f_obj(params_b)
-        y_obj_one_hot = f_obj(params_opt_one_hot)
-        print(itr, y_obj, opt_molecule, y_obj_one_hot)  # opt_res,
-        print(params_b)
+        y_obj_one_hot = f_obj(params_b_one_hot)
 
+        r.update(
+            {
+                itr: {
+                    "molecule": molecule_itr,
+                    "params_b": params_b,
+                    "objective": y_obj,
+                    "objective_one_hot": y_obj_one_hot,
+                }
+            }
+        )
+
+        if y_obj < y_obj_opt:
+            y_obj_opt = y_obj
+            params_b_opt = params_b
+            molecule_opt = molecule_itr
+        if itr % 5 == 0:
+            print(f"{itr}, {y_obj}, {molecule_itr}, {y_obj_one_hot}")
+            print(jax.tree_map(lambda x: jax.nn.softmax(x), params_b))
+        
     print('-------------------------------------------------')
-    return None
+    return params_b_opt, molecule_opt, r
 
 
-def wrapper_opt_method(f_obj:Callable,method:str='BGFS',lr:float=1E-3):
+def wrapper_opt_method(f_obj:Callable,method:str='BGFS',lr:float=2E-2):
     if method == 'BGFS':
         def wrapper(params_b:Any,*args):
                 optimizer = ScipyMinimize(

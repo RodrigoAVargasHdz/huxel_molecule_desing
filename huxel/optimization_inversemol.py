@@ -60,13 +60,11 @@ def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo',external_f
     f_obj = lambda w: f_obj_all(w,params_fixed_atoms,params_extra, molec, f_beta,external_field)
     y_obj_initial = f_obj(params_b)
     # -----------------------------------------------------------------
-
-    # opt_gd(params_b, 1000, 0.5)
-    # opt_adam(params_b, 1000, 0.1)
     
     for _opt in ['BGFS','GD','Adam']:
-        opt_obj(f_obj,params_b,params_fixed_atoms,params_extra,_opt) #params_b_opt, opt_molecule, r_dic = 
-    # print(r_dic)
+        params_b_opt, opt_molecule, results_dic = opt_obj(f_obj,params_b,params_fixed_atoms,params_extra,_opt) #c = 
+        print(results_dic)
+    assert 0
 
     # jnp.save(
     #     f"/h/rvargas/huxel/Results_polarizability_X6/molecule_opt_{l}.npy",
