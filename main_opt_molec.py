@@ -14,14 +14,14 @@ from huxel.comb_benzene import _all_benzene, single_test
 def main():
     parser = argparse.ArgumentParser(description="opt overlap NN")
     parser.add_argument("--l", type=int, default=0, help="label")
-    parser.add_argument("--lr", type=float, default=2e-2, help="learning rate")
+    # parser.add_argument("--lr", type=float, default=2e-2, help="learning rate")
     parser.add_argument("--obj", type=str, default="homo_lumo", help="objective type")
     parser.add_argument("--opt", type=str, default="BFGS", help="objective type")
     parser.add_argument("--extfield", type=float, default=0.01, help="external field for polarization")
 
     args = parser.parse_args()
     l = args.l
-    lr = args.lr
+    # lr = args.lr
     obj = args.obj
     opt = args.opt
     ext_field = args.extfield
