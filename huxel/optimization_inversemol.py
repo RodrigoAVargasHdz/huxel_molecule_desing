@@ -38,7 +38,7 @@ jax.config.update("jax_enable_x64", True)
 # one_hot --> pre softmax
         
 
-def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo',external_field:float=None):
+def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo',_minimizer:str='BFGS',external_field:float=None):
 
     rng = jax.random.PRNGKey(l)
     rng, subkey = jax.random.split(rng)
@@ -61,10 +61,8 @@ def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo',external_f
     y_obj_initial = f_obj(params_b)
     # -----------------------------------------------------------------
     
-    for _opt in ['GD','Adam','BGFS']:
-        params_b_opt, opt_molecule, results_dic = opt_obj(f_obj,params_b,params_fixed_atoms,params_extra,_opt) #c = 
-        print(results_dic)
-    assert 0
+    params_b_opt, opt_molecule, results_dic = opt_obj(f_obj,params_b,params_fixed_atoms,params_extra,_minimizer) #c = 
+    # print(results_dic)
 
     # jnp.save(
     #     f"/h/rvargas/huxel/Results_polarizability_X6/molecule_opt_{l}.npy",

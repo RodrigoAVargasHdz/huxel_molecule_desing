@@ -49,8 +49,8 @@ def main():
         xyz
     )
     
-    # _opt(0, molec)#,'polarizability' 
-    _opt(2, molec,'polarizability',0.01)#,'polarizability' 
+    _opt(0, molec)#,'polarizability' 
+    # _opt(2, molec,'polarizability',0.01)#,'polarizability' 
 
     # for l in range(0, 20):
     #     _opt(l, molec,'polarizability')

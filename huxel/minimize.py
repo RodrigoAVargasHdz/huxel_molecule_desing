@@ -19,7 +19,7 @@ import optax
 from huxel.utils import get_molecule
 
 
-def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BGFS',ntr:int=15,lr:float=2E-1):
+def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BFGS',ntr:int=15,lr:float=2E-1):
     opt_step = wrapper_opt_method(f_obj,opt_method,lr)
     params_b = params_b_init
 
@@ -50,32 +50,16 @@ def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra
             y_obj_opt = y_obj
             params_b_opt = params_b
             molecule_opt = molecule_itr
-        if itr % 5 == 0:
-            print(f"{itr}, {y_obj}, {molecule_itr}, {y_obj_one_hot}")
-            print(jax.tree_map(lambda x: jax.nn.softmax(x), params_b))
+    #     if itr % 5 == 0:
+    #         print(f"{itr}, {y_obj}, {molecule_itr}, {y_obj_one_hot}")
+    #         print(jax.tree_map(lambda x: jax.nn.softmax(x), params_b))
         
-    print('-------------------------------------------------')
+    # print('-------------------------------------------------')
     return params_b_opt, molecule_opt, r
 
 
-def get_max(x:dict):
-    flat, tree = jax.tree_flatten(x)
-    return jnp.max(jnp.asarray(flat))
-def get_sum(x:dict):
-    flat, tree = jax.tree_flatten(x)
-    return jnp.sum(jnp.asarray(flat))
-
-def f_obj_reg(f_obj:Callable):
-    def wrapper(params_b:Any,*args):
-        norm_parmas_b = jax.tree_map(lambda x: jnp.linalg.norm(x,ord=1), params_b)    
-        max_norm_parmas_b = get_max(jax.lax.stop_gradient(norm_parmas_b))
-        # reg_coeff = get_sum(norm_parmas_b) 
-        return f_obj(params_b) + get_sum(norm_parmas_b)
-    return wrapper
-# f_obj_new = lambda params_b: f_obj(params_b) + f_obj_reg(params_b)
-
-def wrapper_opt_method(f_obj:Callable,method:str='BGFS',lr:float=2E-1):
-    if method == 'BGFS':
+def wrapper_opt_method(f_obj:Callable,method:str='BFGS',lr:float=2E-1):
+    if method == 'BFGS':
         def wrapper(params_b:Any,*args):
                 optimizer = ScipyMinimize(
                     method="BFGS",
@@ -106,3 +90,21 @@ def wrapper_opt_method(f_obj:Callable,method:str='BGFS',lr:float=2E-1):
                 return optax.apply_updates(params_b, updates), y_obj
             return adam_step(params_b)
         return wrapper
+
+'''
+def get_max(x:dict):
+    flat, tree = jax.tree_flatten(x)
+    return jnp.max(jnp.asarray(flat))
+def get_sum(x:dict):
+    flat, tree = jax.tree_flatten(x)
+    return jnp.sum(jnp.asarray(flat))
+
+def f_obj_reg(f_obj:Callable):
+    def wrapper(params_b:Any,*args):
+        norm_parmas_b = jax.tree_map(lambda x: jnp.linalg.norm(x,ord=1), params_b)    
+        max_norm_parmas_b = get_max(jax.lax.stop_gradient(norm_parmas_b))
+        # reg_coeff = get_sum(norm_parmas_b) 
+        return f_obj(params_b) + get_sum(norm_parmas_b)
+    return wrapper
+# f_obj_new = lambda params_b: f_obj(params_b) + f_obj_reg(params_b)
+'''
