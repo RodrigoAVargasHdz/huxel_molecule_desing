@@ -36,7 +36,14 @@ from jax.config import config
 jax.config.update("jax_enable_x64", True)
 
 # one_hot --> pre softmax
-        
+
+def get_files(smile_i:int,l:int,objective: str='homo_lumo',_minimizer:str='BFGS'):
+    head = f'smile{smile_i}_l_{l}_{objective}_{_minimizer}'
+    files = {'head':head,
+            'out': head + '.txt',
+            'results': head + '.npy',
+    }
+    return files
 
 def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo',_minimizer:str='BFGS',external_field:float=None):
 
@@ -61,19 +68,26 @@ def _optimization_molec(l: int, molec=Any, objective: str='homo_lumo',_minimizer
     y_obj_initial = f_obj(params_b)
     # -----------------------------------------------------------------
     
-    params_b_opt, opt_molecule, results_dic = opt_obj(f_obj,params_b,params_fixed_atoms,params_extra,_minimizer) #c = 
-    # print(results_dic)
+    params_b_opt, opt_molecule, results_dic = opt_obj(f_obj,params_b,params_fixed_atoms,params_extra,_minimizer) 
 
-    # jnp.save(
-    #     f"/h/rvargas/huxel/Results_polarizability_X6/molecule_opt_{l}.npy",
-    #     r_dic,
-    #     allow_pickle=True,
-    # )
+    files = get_files()
+    cwd = os.getcwd()
+    rwd = os.path.join(cwd,'Results')
+    file_r = files
+    jnp.save(
+        f"/h/rvargas/huxel/Results_polarizability_X6/molecule_opt_{l}.npy",
+        results_dic,
+        allow_pickle=True,
+    )
     # jnp.save(f"molecule_opt_benzene.npy", r_dic, allow_pickle=True)
 
     norm_params_b_opt = jax.tree_map(lambda x: softmax(x), params_b_opt)
     y_ev = f_obj(params_b_opt)
 
+
+    now = datetime.datetime.now()
+    print(now)
+    print("----------------------------------")
     print(f"Molecule with min {objective_name} gap, l = {l}")
     print(f"{objective}")
     print(f"(initial) {objective_name}:", y_obj_initial)

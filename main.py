@@ -1,37 +1,62 @@
-import time
+import os
 import argparse
+import numpy as onp
+import jax.numpy as jnp
 
-# from huxel.optimization import _optimization as _opt
-from huxel.optimization_inversemol import _optimization as _opt
-from huxel.optimization_inversemol import _all_molecules
-from huxel.prediction import _pred, _pred_def
+from huxel.molecule import myMolecule
+from huxel.optimization_inversemol import _optimization_molec as _opt
 
+def get_jcp_molecule_data(smile_i:int=2):# Benzene --> smile_i = 2
+    data_d = os.path.join(os.getcwd(),'molecules')
+    d = onp.load(os.path.join(data_d,f"smile{smile_i}.npy"),allow_pickle=True)
+
+    smile = d.item()['smile']
+    atom_types = d.item()['atoms']
+    conectivity_matrix = jnp.array(d.item()['AdjacencyMatrix'],dtype=int)
+    xyz = jnp.array(d.item()['xyz'])
+    return smile, atom_types, conectivity_matrix, xyz
 
 def main():
-    parser = argparse.ArgumentParser(description="opt overlap NN")
-    parser.add_argument("--N", type=int, default=10, help="traning data")
-    parser.add_argument("--l", type=int, default=0, help="label")
-    parser.add_argument("--lr", type=float, default=2e-2, help="learning rate")
-    parser.add_argument("--batch_size", type=int, default=128, help="batches")
-    parser.add_argument("--job", type=str, default="opt", help="job type")
-    parser.add_argument("--beta", type=str, default="c", help="beta function type")
+    parser = argparse.ArgumentParser(description="molecular inverse design Huckel with JAX")
+    parser.add_argument("--s", type=int, default=1, help="smile integer for JCP2008 molecules, range [1 to 8]")
+    parser.add_argument("--l", type=int, default=2, help="label")
+    # parser.add_argument("--lr", type=float, default=2e-2, help="learning rate")
+    parser.add_argument("--obj", type=str, default="homo_lumo", help="objective type")
+    parser.add_argument("--opt", type=str, default="BFGS", help="objective type")
+    parser.add_argument("--extfield", type=float, default=0.01, help="external field for polarization")
 
-    # bathch_size = #1024#768#512#256#128#64#32
     args = parser.parse_args()
+    smile_i = args.s
     l = args.l
-    n_tr = args.N
-    lr = args.lr
-    batch_size = args.batch_size
-    job_ = args.job
-    beta_ = args.beta
+    # lr = args.lr
+    obj = args.obj
+    opt = args.opt
+    ext_field = args.extfield
 
-    if job_ == "opt":
-        _opt(n_tr, batch_size, lr, l, beta_)
-    elif job_ == "pred":
-        _pred(n_tr, l, beta_)
-    elif job_ == "pred_def":
-        _pred_def(beta_)
+    # read molecule info
+    smile, atom_types, conectivity_matrix, xyz = get_jcp_molecule_data(smile_i)
 
+    print(smile)
+    print(atom_types)
+    print(conectivity_matrix)
+    print(xyz)
+
+    molec = myMolecule(
+        smile_i,
+        smile,
+        atom_types,
+        conectivity_matrix,
+        xyz
+    )
+    print(molec)
+    assert 0
+
+
+
+    if obj == 'homo_lumo':
+        _opt(l, molec,obj,opt)
+    elif obj == 'polarizability':
+        _opt(l, molec,obj,opt,ext_field)
 
 if __name__ == "__main__":
     main()

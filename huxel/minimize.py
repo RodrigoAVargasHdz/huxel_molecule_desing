@@ -19,15 +19,25 @@ import optax
 from huxel.utils import get_molecule
 
 
-def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BFGS',ntr:int=15,lr:float=2E-1):
+def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BFGS',ntr:int=50,lr:float=2E-1):
     opt_step = wrapper_opt_method(f_obj,opt_method,lr)
     params_b = params_b_init
 
-    r = {}
+    params_b, y_obj = opt_step(params_b)
+    molecule_itr, params_b_one_hot = get_molecule(
+        {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
+    )
+    r = {0:{
+            "molecule": molecule_itr,
+            "params_b": params_b,
+            "objective": y_obj,
+            "objective_one_hot": y_obj_one_hot,
+            }}
+    
     params_b_opt = params_b_init.copy()
     y_obj_opt = jnp.inf
     molecule_opt = []
-    for itr in range(0,ntr+1):
+    for itr in range(1,ntr+1):
         params_b, y_obj = opt_step(params_b)
         molecule_itr, params_b_one_hot = get_molecule(
             {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
