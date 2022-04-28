@@ -26,6 +26,6 @@ if __name__ == "__main__":
                                 [0, 0, 1, 0]],dtype=int)
     homo_lumo_grap_ref = 1.0
 
-    molec = myMolecule('caca',atom_types,conectivity_matrix,2.)
+    molec = myMolecule('test',atom_types,conectivity_matrix,2.)
     molecs = [molec,molec]
     print(molecs[0].homo_lumo_grap_ref)

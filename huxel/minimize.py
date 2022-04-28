@@ -61,16 +61,13 @@ def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra
             y_obj_opt = y_obj
             params_b_opt = params_b
             molecule_opt = molecule_itr
-    #     if itr % 5 == 0:
-    #         print(f"{itr}, {y_obj}, {molecule_itr}, {y_obj_one_hot}")
-    #         print(jax.tree_map(lambda x: jax.nn.softmax(x), params_b))
-        
-    # print('-------------------------------------------------')
+
     return params_b_opt, molecule_opt, r
 
 
 def wrapper_opt_method(f_obj:Callable,method:str='BFGS',lr:float=2E-1):
-    if method == 'BFGS':
+    
+    if method == 'BFGS' or  method == 'bfgs':
         def wrapper(params_b:Any,*args):
                 optimizer = ScipyMinimize(
                     method="BFGS",
@@ -83,6 +80,7 @@ def wrapper_opt_method(f_obj:Callable,method:str='BFGS',lr:float=2E-1):
                 params_b = res.params
                 return params_b, y_obj
         return wrapper
+
     elif method == 'GD' or method == 'gradient_descent':
         def wrapper(params_b:Any,*args):
             def gd_step(params_b:Any):
@@ -91,6 +89,7 @@ def wrapper_opt_method(f_obj:Callable,method:str='BFGS',lr:float=2E-1):
                 return jax.tree_multimap(inner_sgd_fn, grads, params_b), y_obj
             return gd_step(params_b)
         return wrapper
+
     elif method == 'Adam' or method == 'adam': # (Incomplete)
         def wrapper(params_b:Any,*args):
             optimizer = optax.adam(learning_rate=lr)
