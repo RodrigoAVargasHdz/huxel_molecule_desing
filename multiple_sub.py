@@ -14,7 +14,7 @@ def sh_file(smilei, l, obj, opt = 'BFGS'):
 #    f.write('#SBATCH --qos nopreemption  \n')
 #    f.write('#SBATCH --partition=cpu \n')
     f.write('#SBATCH --job-name={} \n'.format(f_tail))
-    f.write('#SBATCH --time=0-25:00 \n')
+    f.write('#SBATCH --time=00:55:00 \n')
     f.write('#SBATCH --output=out_{}.log \n'.format(f_tail))
 
     f.write('\n')
@@ -22,6 +22,7 @@ def sh_file(smilei, l, obj, opt = 'BFGS'):
     f.write('module load python/3.9.8 \n')
     f.write('source $HOME/.virtualenvs/jaxenv/bin/activate\n')
     f.write('module load python/3.9.8 \n')
+    f.write('\n')
 
     if obj == 'polarizability':
         ext_field = 0.01 
@@ -35,9 +36,9 @@ def sh_file(smilei, l, obj, opt = 'BFGS'):
     f.write('\n')
     f.close()
 
-    # if os.path.isfile(file_sh):
-        # print('Submitting JC_%s.sh'%(f_tail))
-        # os.system(f"sbatch {file_sh}")
+    if os.path.isfile(file_sh):
+        print('Submitting JC_%s.sh'%(f_tail))
+        os.system(f"sbatch {file_sh}")
 
 def main():
 #    beta_ = 'exp_freezeR'
@@ -49,7 +50,7 @@ def main():
     opt_ = 'BFGS'
 
     n_ = [50,25,10,5]
-    for si in range(1,10):
+    for si in range(3,10):
         for l in range(1,150):
             sh_file(si,l,obj_[0],opt_)
             sh_file(si,l,obj_[1],opt_)
