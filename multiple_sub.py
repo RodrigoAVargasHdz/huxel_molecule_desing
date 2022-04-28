@@ -37,7 +37,7 @@ def sh_file(smilei, l, obj, opt = 'BFGS'):
     f.close()
 
     if os.path.isfile(file_sh):
-        print('Submitting JC_%s.sh'%(f_tail))
+        print(f"Submitting {file_sh}")
         os.system(f"sbatch {file_sh}")
 
 def main():
