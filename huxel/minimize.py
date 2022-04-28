@@ -19,7 +19,7 @@ import optax
 from huxel.utils import get_molecule
 
 
-def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BFGS',ntr:int=50,lr:float=2E-1):
+def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BFGS',ntr:int=2,lr:float=2E-1):
     opt_step = wrapper_opt_method(f_obj,opt_method,lr)
     params_b = params_b_init
 
@@ -27,6 +27,7 @@ def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra
     molecule_itr, params_b_one_hot = get_molecule(
         {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
     )
+    y_obj_one_hot = f_obj(params_b_one_hot)
     r = {0:{
             "molecule": molecule_itr,
             "params_b": params_b,
