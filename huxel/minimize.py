@@ -19,7 +19,7 @@ import optax
 from huxel.utils import get_molecule
 
 
-def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BFGS',ntr:int=2,lr:float=2E-1):
+def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BFGS',ntr:int=35,lr:float=2E-1):
     opt_step = wrapper_opt_method(f_obj,opt_method,lr)
     params_b = params_b_init
 
@@ -66,7 +66,7 @@ def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra
 
 
 def wrapper_opt_method(f_obj:Callable,method:str='BFGS',lr:float=2E-1):
-    
+
     if method == 'BFGS' or  method == 'bfgs':
         def wrapper(params_b:Any,*args):
                 optimizer = ScipyMinimize(
