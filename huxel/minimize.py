@@ -19,8 +19,31 @@ import optax
 from huxel.utils import get_molecule
 
 
-def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra:Any,opt_method:str='BFGS',ntr:int=5,lr:float=2E-1):
-    opt_step = wrapper_opt_method(f_obj,opt_method,lr)
+def opt_obj(
+
+        f_obj:Callable, 
+        params_b_init:Any,
+        params_fixed_atoms:Any,
+        params_extra:Any,
+        files:dict,
+        _minimizer:str='BFGS',
+        ntr:int=5,
+        lr:float=2E-1,
+
+        ):
+
+
+    rwd = files['rwd']
+    file_r = files['results']
+    file_out = os.path.join(rwd,files['out'])
+    files_r = os.path.join(rwd, file_r)    
+
+    f = open(file_out,'a+')
+    print("------------------------------------------------", file=f)
+    print(f"Optimization with {_minimizer}", file=f)
+    f.close()
+
+    opt_step = wrapper_opt_method(f_obj,_minimizer,lr)
     params_b = params_b_init
 
     params_b, (y_obj,grad_y_obj) = opt_step(params_b)
@@ -59,11 +82,18 @@ def opt_obj(f_obj:Callable,params_b_init:Any,params_fixed_atoms:Any,params_extra
             }
         )
 
+        f = open(file_out,'a+')
+        print(f"{itr} | {y_obj}   {y_obj_one_hot} | {molecule_itr}", file=f)
+        f.close()
+
         if y_obj < y_obj_opt:
             y_obj_opt = y_obj
             params_b_opt = params_b
             molecule_opt = molecule_itr
 
+    f = open(file_out,'a+')
+    print("------------------------------------------------", file=f)
+    f.close()
     return params_b_opt, molecule_opt, r
 
 

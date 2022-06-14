@@ -36,16 +36,27 @@ jax.config.update("jax_enable_x64", True)
 
 # one_hot --> pre softmax
 
-def get_files(smile_i:int, l:int, objective: str='homo_lumo', _minimizer:str='BFGS'):
+def get_files(smile_i:int, l:int, objective: str='homo_lumo', _minimizer:str='BFGS', cwd:str=''):
+    
     head = f'smile{smile_i}_l_{l}_{objective}_{_minimizer}'
-    files = {'head':head,
+
+    files = {
+            'head':head,
             'out': 'out_'+ head + '.txt',
             'results': head + '.npy',
+            'rwd': os.path.join(cwd,'Results'),
     }
     return files
 
 def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimizer:str='BFGS', external_field:float=None):
     now = datetime.datetime.now()
+
+    cwd = os.getcwd()
+    rwd = os.path.join(cwd,'Results')
+
+    files = get_files(molec.id, l, objective, _minimizer, cwd)
+    print(files)
+
     objective_name = get_objective_name(objective)
     f_beta = _f_beta("c")
 
@@ -63,24 +74,20 @@ def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimize
         params_total, params_extra["one_pi_elec"]
     )
 
-
-
     f_obj_all = _f_obj(objective)
-    external_field = get_external_field(objective,external_field)
+    external_field = get_external_field(objective, external_field)
 
-    f_obj = lambda w: f_obj_all(w,params_fixed_atoms,params_extra, molec, f_beta,external_field)
+    f_obj = lambda w: f_obj_all(w, params_fixed_atoms, params_extra, molec, f_beta, external_field)
     y_obj_initial = f_obj(params_b)
     
     # minimize
-    params_b_opt, opt_molecule, results_dic = opt_obj(f_obj,params_b,params_fixed_atoms,params_extra,_minimizer) 
+    params_b_opt, opt_molecule, results_dic = opt_obj(f_obj, params_b, params_fixed_atoms, params_extra, files, _minimizer) 
 
     # -----------------------------------------------------------------
-    files = get_files(molec.id,l,objective,_minimizer)
-    print(files)
-    cwd = os.getcwd()
-    rwd = os.path.join(cwd,'Results')
+
     file_r = files['results']
-    resd = os.path.join(os.getcwd(),'Results')
+    resd = files['rwd']
+
     jnp.save(
         os.path.join(resd,file_r),
         results_dic,
@@ -92,7 +99,7 @@ def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimize
 
     # -----------------------------------------------------------------
     file_out = os.path.join(resd,files['out'])
-    f = open(file_out,'w+')
+    f = open(file_out,'a+')
     print("----------------------------------",file=f)
     print(f"l = {l}",file=f)
     print(f"{molec.smile}",file=f)
