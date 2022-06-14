@@ -23,7 +23,7 @@ def main():
     # parser.add_argument("--lr", type=float, default=2e-2, help="learning rate")
     parser.add_argument("--obj", type=str, default="homo_lumo", help="objective type")
     parser.add_argument("--opt", type=str, default="BFGS", help="objective type")
-    parser.add_argument("--extfield", type=float, default=0.01, help="external field for polarization")
+    parser.add_argument("--extfield", type=float, default=0., help="external field for polarization")
 
     args = parser.parse_args()
     smile_i = args.s
@@ -54,6 +54,28 @@ def main():
         _opt(l, molec,obj,opt)
     elif obj == 'polarizability':
         _opt(l, molec,obj,opt,ext_field)
+
+def main_adam():
+
+    si = 3
+    # obj = 'homo_lumo'
+    # l_ = [14,40,49]
+
+    obj = 'polarizability'
+    l_ = [13,15,27]
+
+    _minimizer = 'Adam'
+
+    for l in l_:
+        smile, atom_types, conectivity_matrix, xyz = get_jcp_molecule_data(si)
+        molec = myMolecule(
+            si,
+            smile,
+            atom_types,
+            conectivity_matrix,
+            xyz
+        )
+        _opt(l, molec,obj,_minimizer,0.)
 
 def main_best():
     # ---------------------------
@@ -104,5 +126,6 @@ def main_best():
 
 
 if __name__ == "__main__":
-    # main()
-    main_best()
+    main()
+    # main_best()
+    # main_adam()

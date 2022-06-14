@@ -9,15 +9,17 @@ from huxel.parameters import H_X, N_ELECTRONS, H_X, H_XY
 from huxel.molecule import myMolecule
 from huxel.beta_functions import _f_beta
 
+from typing import Any
 
-def f_homo_lumo_gap(params_b, params_extra, molecule, f_beta):
+
+def f_homo_lumo_gap(params_b:dict, params_extra:dict, molecule:Any, f_beta:callable):
 
     z_pred, extra = _homo_lumo_gap(params_b, params_extra, molecule, f_beta)
-    y_pred = params_extra["beta"] * z_pred + params_extra["alpha"]
+    y_pred = params_extra["hl_params"]["a"]*z_pred + params_extra["hl_params"]["b"]
     return jnp.sum(y_pred)  # , (z_pred, extra)
 
 
-def _homo_lumo_gap(params_b, params_extra, molecule, f_beta):
+def _homo_lumo_gap(params_b:dict, params_extra:dict, molecule:Any, f_beta:callable):
     h_m, electrons = _construct_huckel_matrix(params_b, params_extra, molecule, f_beta)
     e_, _ = _solve(h_m)
 
@@ -35,7 +37,18 @@ def _homo_lumo_gap(params_b, params_extra, molecule, f_beta):
     val = lumo_energy - homo_energy
     return val, (h_m, e_)
 
-def f_energy(params_b, params_extra, molecule,f_beta, external_field = None):
+# -----------------------------------------------------------------------------
+def f_polarizability(params_b:dict, params_extra:dict, molecule:Any, f_beta:callable, external_field:Any = None):
+    z_pred = _f_polarizability(params_b, params_extra, molecule,  f_beta, external_field)
+    y_pred = z_pred + params_extra["pol_params"]["b"]
+    return jnp.sum(y_pred) #,z_pred,y_true
+
+def _f_polarizability(params_b:dict, params_extra:dict, molecule:Any, f_beta:callable, external_field:Any = None):
+    polarizability_tensor = jax.hessian(f_energy,argnums=(4))(params_b, params_extra,molecule,f_beta,external_field)
+    polarizability = (1/3.)*jnp.trace(polarizability_tensor)
+    return polarizability
+
+def f_energy(params_b:dict, params_extra:dict, molecule:any, f_beta:callable, external_field:Any = None):
     h_m,electrons = _construct_huckel_matrix(params_b, params_extra, molecule, f_beta)
 
     if external_field != None:
@@ -48,10 +61,6 @@ def f_energy(params_b, params_extra, molecule,f_beta, external_field = None):
     occupations, spin_occupations, n_occupied, n_unpaired = _set_occupations(jax.lax.stop_gradient(electrons),jax.lax.stop_gradient(e_),jax.lax.stop_gradient(n_orbitals))
     return jnp.dot(occupations,e_)
 
-def f_polarizability(params_b, params_extra, molecule,f_beta, external_field = None):
-    polarizability_tensor = jax.hessian(f_energy,argnums=(4))(params_b, params_extra,molecule,f_beta,external_field)
-    polarizability = (1/3.)*jnp.trace(polarizability_tensor)
-    return polarizability
 
 # -------
 def _construct_huckel_matrix(params_b, params_extra, molecule, f_beta):

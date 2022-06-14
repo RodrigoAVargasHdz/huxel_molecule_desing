@@ -5,6 +5,7 @@ import jax.numpy as jnp
 
 from huxel.molecule import myMolecule
 from huxel.optimization_inversemol import _optimization_molec as _opt
+from huxel.utils import get_external_field
 
 def main_new():
     parser = argparse.ArgumentParser(description="molecular inverse design Huckel with JAX")
@@ -101,12 +102,16 @@ def main():
         xyz
     )
 
-    if obj == 'homo_lumo':
-        _opt(l, molec,obj,opt)
-    elif obj == 'polarizability':
-        _opt(l, molec,obj,opt,ext_field)
+    from huxel.huckel import _construct_huckel_matrix_field
+    ext_field = get_external_field('polarizability',0.01)
+    print(_construct_huckel_matrix_field(molec,ext_field))
+
+    # if obj == 'homo_lumo':
+    #     _opt(l, molec,obj,opt)
+    # elif obj == 'polarizability':
+    #     _opt(l, molec,obj,opt,ext_field)
 
 
 if __name__ == "__main__":
-    # main()
-    main_new()
+    main()
+    # main_new()

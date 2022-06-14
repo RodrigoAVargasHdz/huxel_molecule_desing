@@ -25,11 +25,10 @@ from huxel.utils import (
     get_initial_params_b,
     get_initial_params_b_benzene,
     _f_obj, get_external_field, get_molecule,
-    get_objective_name
+    get_objective_name,
+     _preprocessing_params,
 )
 from huxel.minimize import opt_obj
-from huxel.huckel import f_homo_lumo_gap, f_polarizability
-
 
 from jax.config import config
 
@@ -55,6 +54,8 @@ def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimize
 
     # ----------------------------------------------------------------- 
     params_extra = get_huckel_params()
+
+    # ----------------------------------------------------------------- 
     (params_b,params_fixed_atoms), subkey = get_initial_params_b(subkey, molec, params_extra["one_pi_elec"])
     params_total = {**params_b,**params_fixed_atoms}
 
@@ -62,7 +63,8 @@ def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimize
         params_total, params_extra["one_pi_elec"]
     )
 
-    # ----------------------------------------------------------------- 
+
+
     f_obj_all = _f_obj(objective)
     external_field = get_external_field(objective,external_field)
 

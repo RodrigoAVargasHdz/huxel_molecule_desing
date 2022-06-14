@@ -8,12 +8,11 @@ import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
 
-from huxel.data import get_raw_data
+from huxel.data_utils import get_raw_data, batch_to_list_class
 from huxel.huckel import f_homo_lumo_gap
 from huxel.beta_functions import _f_beta
 from huxel.utils import (
     get_files_names,
-    batch_to_list_class,
     get_init_params,
     get_default_params,
 )

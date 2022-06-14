@@ -9,17 +9,16 @@ from jax import jit
 from jax.nn import one_hot
 
 from huxel.molecule import myMolecule
-from huxel.parameters import H_X, H_XY, R_XY, Y_XY, N_ELECTRONS
-from huxel.parameters import h_x_tree, h_x_flat, h_xy_tree, h_xy_flat
-from huxel.parameters import f_dif_pytrees, f_div_pytrees
+from huxel.parameters import H_X, H_XY, N_ELECTRONS
+from huxel.parameters import R_XY_Bohr, R_XY_AA
+from huxel.parameters import Y_XY_Bohr, Y_XY_AA
+from huxel.parameters import h_x_tree, h_x_flat, h_xy_tree, h_xy_flat, r_xy_tree, r_xy_flat
+from huxel.parameters import f_dif_pytrees, f_div_pytrees, f_mult_pytrees, f_sum_pytrees
+from huxel.parameters import au_to_eV, Bohr_to_AA
+
 from huxel.huckel import f_homo_lumo_gap, f_polarizability
 
-# r_dir = './Results_xyz_constant_random_params/'
-#'./Results_xyz/'
-#'./Results_xyz_linear/'
-#'./Results_xyz_constant/'
-#'./Results_xyz_constant_random_params'/
-
+PRNGKey = Any 
 
 def get_huckel_params():
 
@@ -51,20 +50,21 @@ def get_huckel_params():
             else:
                 h_xy_red.update({key: 0.0})
 
-    a, b = get_init_params_lr()
+    hl_a, hl_b = get_init_params_homo_lumo()
+    pol_a, pol_b = get_init_params_polarizability()
 
     params_huckel = {
         "h_x": h_x_red,
         "h_xy": h_xy_red,
         "one_pi_elec": one_pi_elec,
-        "alpha": a,
-        "beta": b,
+        "hl_params":{"a": hl_a,"b": hl_b},
+        "pol_params":{"a": pol_a,"b": pol_b},
     }
 
     return params_huckel
 
 
-def get_initial_params_b(subkey: Any, molec: Any, one_pi_elec: list):
+def get_initial_params_b(subkey:Any, molec:Any, one_pi_elec:list):
 
     params_b = {}
     params_fixed_atoms = {}
@@ -83,7 +83,7 @@ def get_initial_params_b(subkey: Any, molec: Any, one_pi_elec: list):
     return (params_b,params_fixed_atoms), subkey
 
 
-def get_initial_params_b_benzene(subkey: Any, molec: Any, one_pi_elec: Any):
+def get_initial_params_b_benzene(subkey:Any, molec:Any, one_pi_elec:Any):
 
     params_b = {}
     for ni, c in enumerate(molec.atom_types):
@@ -119,41 +119,38 @@ def _f_obj(objective:str):
             return -f_polarizability(args_new,*args[1:])
         return wrapper  
 
-def get_external_field(objective:str='homo_lumo',magnitude:Any=None):
-    if objective == 'polarizability':
+def get_external_field(objective:str='homo_lumo',magnitude:Any=0.):
+    if objective.lower() == 'polarizability' or objective.lower() == 'pol':
         if isinstance(magnitude, float):
             return magnitude*jnp.ones(3)
         elif isinstance(magnitude, list):
             return jnp.asarray(magnitude)
+        else: #default
+            return jnp.zeros(3)
     else:
-        if magnitude == None:
-            return None   
+        return None   
+
+def _preprocessing_params(objective:str):
+    if objective.lower() == 'homo_lumo' or objective.lower() == 'hl':
+        def wrapper(*args):
+            return normalize_params_wrt_C(*args)
+        return wrapper         
+    elif objective.lower() == 'polarizability' or objective.lower() == 'pol':
+        def wrapper(*args):
+            return normalize_params_polarizability(*args)
+        return wrapper  
 
 def get_objective_name(objective:str):
-    if objective == 'homo_lumo':
+    if objective == 'homo_lumo' or objective == 'hl':
         return 'HOMO-LUMO'
-    elif objective == 'polarizability':
+    elif objective == 'polarizability' or objective == 'pol':
         return 'Polarizability'
 
 
-# OLD
-
 # --------------------------------
 #     FILES
-def get_r_dir_old(method):
-    if method == "exp":
-        return "./Results_xyz/"
-    elif method == "linear":
-        return "./Results_xyz_linear/"
-    elif method == "constant":
-        return "./Results_xyz_constant/"
-    elif method == "exp_freezeR":
-        return "./Results_xyz_freezeR/"
-    elif method == "randW":
-        return "./Results_xyz_constant_random_params/"
 
-
-def get_r_dir(method, bool_randW):
+def get_r_dir(method:str, bool_randW:bool):
     if bool_randW:
         r_dir = "./Results_{}_randW/".format(method)
     else:
@@ -164,36 +161,12 @@ def get_r_dir(method, bool_randW):
     return r_dir
 
 
-def get_files_names(N, l, beta, randW, opt_name="Adam"):
-    # r_dir = './Results_xyz/'
-    r_dir = get_r_dir(beta, randW)
-
-    f_job = "huckel_xyz_N_{}_l_{}_{}".format(N, l, opt_name)
-    f_out = "{}/out_{}.txt".format(r_dir, f_job)
-    f_w = "{}/parameters_{}.npy".format(r_dir, f_job)
-    f_pred = "{}/Prediction_{}.npy".format(r_dir, f_job)
-    f_data = "{}/Data_{}.npy".format(r_dir, f_job)
-    f_loss_opt = "{}/Loss_tr_val_itr_{}.npy".format(r_dir, f_job)
-
-    files = {
-        "f_job": f_job,
-        "f_out": f_out,
-        "f_w": f_w,
-        "f_pred": f_pred,
-        "f_data": f_data,
-        "f_loss_opt": f_loss_opt,
-        "r_dir": r_dir,
-    }
-    return files
-
-
 def get_params_file_itr(files, itr):
     # r_dir = './Results_xyz/'
     f_job = files["f_job"]
     r_dir = files["r_dir"]
     file_ = "{}/params_{}_itr_{}.npy".format(r_dir, f_job, itr)
     return file_
-
 
 # --------------------------------
 #     HEAD OF FILE
@@ -228,65 +201,6 @@ def print_tail(files):
 
 
 # --------------------------------
-#     DATA
-def batch_to_list(batch):
-    # numpy array to list
-    batch = batch.tolist()
-    for b in batch:
-        if not isinstance(b["atom_types"], list):
-            b["atom_types"] = b["atom_types"].tolist()
-    return batch
-
-
-def batch_to_list_class(batch):
-    #     pytree to class-myMolecule
-    batch = batch_to_list(batch)
-    batch_ = []
-    for b in batch:
-        m = myMolecule(
-            b["id"],
-            b["smiles"],
-            b["atom_types"],
-            b["conectivity_matrix"],
-            b["homo_lumo_grap_ref"],
-            b["dm"],
-        )
-        batch_.append(m)
-    return batch_
-
-
-def save_tr_and_val_data(files, D_tr, D_val, n_batches):
-    file = files["f_data"]
-    D = {
-        "Training": D_tr,
-        "Validation": D_val,
-        "n_batches": n_batches,
-    }
-    jnp.save(file, D, allow_pickle=True)
-
-
-def save_tr_and_val_loss(files, loss_tr, loss_val, n_epochs):
-    epochs = jnp.arange(n_epochs + 1)
-    loss_tr_ = jnp.asarray(loss_tr).ravel()
-    loss_val_ = jnp.asarray(loss_val).ravel()
-
-    if os.path.isfile(files["f_loss_opt"]):
-        pre_epochs, pre_loss_tr, pre_loss_val = load_pre_opt_params(files)
-        loss_tr_ = jnp.append(loss_tr_, pre_loss_tr)
-        loss_val_ = jnp.append(loss_val_, pre_loss_val)
-        # epochs = jnp.arange(0,pre_epochs.shape[0] + epochs.shape[0])
-        epochs = jnp.arange(loss_tr_.shape[0])
-
-    D = {
-        "epoch": epochs,
-        "loss_tr": loss_tr_,
-        "loss_val": loss_val_,
-        # 'loss_test':loss_test,
-    }
-    jnp.save(files["f_loss_opt"], D, allow_pickle=True)
-
-
-# --------------------------------
 #     PARAMETERS
 def load_pre_opt_params(files):
     if os.path.isfile(files["f_loss_opt"]):
@@ -306,16 +220,21 @@ def random_pytrees(_pytree, key, minval=-1.0, maxval=1.0):
     _, subkey = jax.random.split(key)
     return _new_pytree, subkey
 
+def get_init_params_homo_lumo():
+    # params_lr = onp.load("huxel/data/lr_params.npy", allow_pickle=True)
+    alpha = jnp.array([-2.252276274030775]) #params_lr.item()["alpha"] * jnp.ones(1)
+    beta = jnp.array([2.053257355175381]) #params_lr.item()["beta"]
+    return jnp.array(alpha), jnp.array(beta)
 
-def get_init_params_lr():
-    params_lr = onp.load("huxel/data/lr_params.npy", allow_pickle=True)
-    alpha = params_lr.item()["alpha"].reshape(1,)
-    beta = params_lr.item()["beta"]
-    return jnp.asarray(alpha), jnp.asarray(beta)
 
+def get_init_params_polarizability():
+    # params_lr = onp.load("huxel/data/lr_params.npy", allow_pickle=True)
+    alpha = jnp.ones(1)
+    beta = jnp.array([116.20943344747411]) #params_lr.item()["beta"]
+    return jnp.array(alpha), jnp.array(beta)
 
 def get_y_xy_random(key):
-    y_xy_flat, y_xy_tree = jax.tree_util.tree_flatten(Y_XY)
+    y_xy_flat, y_xy_tree = jax.tree_util.tree_flatten(Y_XY_AA)
     y_xy_random_flat = jax.random.uniform(
         key, shape=(len(y_xy_flat),), minval=-0.1, maxval=0.1
     )
@@ -324,11 +243,10 @@ def get_y_xy_random(key):
     y_xy_random = jax.tree_util.tree_unflatten(y_xy_tree, y_xy_random_flat)
     return y_xy_random, subkey
 
-
-def get_params_pytrees(alpha, beta, h_x, h_xy, r_xy, y_xy):
+def get_params_pytrees(hl_a:float, hl_b:float, pol_a:float, pol_b:float, h_x:dict, h_xy:dict, r_xy:dict, y_xy:dict):
     params_init = {
-        "alpha": alpha,
-        "beta": beta,
+        "hl_params":{"a": hl_a,"b": hl_b},
+        "pol_params":{"a": pol_a,"b": pol_b},
         "h_x": h_x,
         "h_xy": h_xy,
         "r_xy": r_xy,
@@ -336,20 +254,20 @@ def get_params_pytrees(alpha, beta, h_x, h_xy, r_xy, y_xy):
     }
     return params_init
 
-
 # include alpha y beta in the new parameters
-def get_default_params():
-    params_lr = get_init_params_lr()
-    # params_init = (params_lr,params_coulson)
-    params_init = {
-        "alpha": params_lr[0],
-        "beta": params_lr[1],
-        "h_x": H_X,
-        "h_xy": H_XY,
-        "r_xy": R_XY,
-        "y_xy": Y_XY,
-    }
-    return get_params_pytrees(params_lr[0], params_lr[1], H_X, H_XY, R_XY, Y_XY)
+def get_default_params(objective:str="homo_lumo"):
+    params_hl = get_init_params_homo_lumo() #homo_lumo
+    params_pol = get_init_params_polarizability() #(jnp.ones(1), jnp.ones(1))
+    
+    if objective.lower() == 'homo_lumo' or objective.lower() == 'hl':
+        R_XY = R_XY_AA
+        Y_XY = Y_XY_AA
+    elif objective.lower() == 'polarizability' or objective.lower() == 'pol':
+        R_XY = R_XY_Bohr
+        Y_XY = Y_XY_Bohr
+
+    return get_params_pytrees(params_hl[0], params_hl[1], params_pol[0], params_pol[1], H_X, H_XY, R_XY, Y_XY)
+
 
 
 def get_params_bool(params_wdecay_):
@@ -374,14 +292,19 @@ def get_params_bool(params_wdecay_):
     return params_bool
 
 
-def get_random_params(files, key):
+def get_random_params(files:dict, key:PRNGKey):
     if not os.path.isfile(files["f_w"]):
         params_init = get_default_params()
         # params_lr,params_coulson = params_init
 
-        alpha_random = jax.random.uniform(key, shape=(1,), minval=-1.0, maxval=1.0)
+        hl_a_random = jax.random.uniform(key, shape=(1,), minval=-1.0, maxval=1.0)
         _, subkey = jax.random.split(key)
-        beta_random = jax.random.uniform(subkey, shape=(1,), minval=-1.0, maxval=1.0)
+        hl_b_random = jax.random.uniform(subkey, shape=(1,), minval=-1.0, maxval=1.0)
+        _, subkey = jax.random.split(subkey)
+
+        pol_a_random = jax.random.uniform(key, shape=(1,), minval=-1.0, maxval=1.0)
+        _, subkey = jax.random.split(key)
+        pol_b_random = jax.random.uniform(subkey, shape=(1,), minval=-1.0, maxval=1.0)
         _, subkey = jax.random.split(subkey)
 
         h_x = params_init["h_x"]
@@ -397,7 +320,7 @@ def get_random_params(files, key):
         y_xy_random, subkey = get_y_xy_random(subkey)
 
         params = get_params_pytrees(
-            alpha_random, beta_random, h_x_random, h_xy_random, r_xy_random, y_xy_random
+            hl_a_random, hl_b_random, pol_a_random , pol_b_random, h_x_random, h_xy_random, r_xy_random, y_xy_random
         )
 
         f = open(files["f_out"], "a+")
@@ -440,26 +363,66 @@ def get_init_params(files):
 
 
 @jit
-def update_h_x(h_x):
+def update_h_x(h_x:dict):
     xc = h_x["C"]
     xc_tree = jax.tree_unflatten(h_x_tree, xc * jnp.ones_like(jnp.array(h_x_flat)))
     return jax.tree_map(f_dif_pytrees, xc_tree, h_x)
 
-
 @jit
-def update_h_xy(h_xy):
+def update_h_xy(h_xy:dict):
     key = frozenset(["C", "C"])
     xcc = h_xy[key]
     xcc_tree = jax.tree_unflatten(h_xy_tree, xcc * jnp.ones_like(jnp.array(h_xy_flat)))
     return jax.tree_map(f_div_pytrees, xcc_tree, h_xy)
 
+@jit
+def update_h_x_au_to_eV(h_x:dict, pol_a:Any):
+    x_tree = jax.tree_unflatten(h_x_tree, (pol_a/au_to_eV) * jnp.ones_like(jnp.array(h_x_flat)))
+    return jax.tree_map(f_mult_pytrees, x_tree, h_x)
 
 @jit
-def update_params_all(params):
-    h_x = h_x = update_h_x(params["h_x"])
+def update_h_xy_au_to_eV(h_xy:dict, pol_a:Any):
+    xy_tree = jax.tree_unflatten(h_xy_tree, (pol_a/au_to_eV) * jnp.ones_like(jnp.array(h_xy_flat)))
+    return jax.tree_map(f_mult_pytrees, xy_tree, h_xy)
+
+@jit
+def update_r_xy_Bohr_to_AA(r_xy:dict):
+    xy_tree = jax.tree_unflatten(r_xy_tree, (Bohr_to_AA) * jnp.ones_like(jnp.array(r_xy_flat)))
+    return jax.tree_map(f_div_pytrees, xy_tree, r_xy)
+
+@jit
+def normalize_params_wrt_C(params:dict):
+    h_x =  update_h_x(params["h_x"])
     h_xy = update_h_xy(params["h_xy"])
+
     new_params = get_params_pytrees(
-        params["alpha"], params["beta"], h_x, h_xy, params["r_xy"], params["y_xy"]
+        params["hl_params"]["a"], 
+        params["hl_params"]["b"], 
+        params["pol_params"]["a"], 
+        params["pol_params"]["b"], 
+        h_x, 
+        h_xy, 
+        params["r_xy"], 
+        params["y_xy"],
     )
     return new_params
 
+@jit
+def normalize_params_polarizability(params:dict):
+    params_norm_c = normalize_params_wrt_C(params)
+    pol_a = params_norm_c["pol_params"]["a"]
+
+    h_x = update_h_x_au_to_eV(params_norm_c["h_x"], pol_a)
+    h_xy = update_h_xy_au_to_eV(params_norm_c["h_xy"], pol_a)
+    
+    new_params = get_params_pytrees(
+        params_norm_c["hl_params"]["a"], 
+        params_norm_c["hl_params"]["b"], 
+        params_norm_c["pol_params"]["a"], 
+        params_norm_c["pol_params"]["b"], 
+        h_x, 
+        h_xy, 
+        params_norm_c["r_xy"], 
+        params_norm_c["y_xy"],
+    )
+    return new_params
