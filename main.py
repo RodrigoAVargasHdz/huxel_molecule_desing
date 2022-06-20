@@ -18,7 +18,7 @@ def get_jcp_molecule_data(smile_i:int=2):# Benzene --> smile_i = 2
 
 def main():
     parser = argparse.ArgumentParser(description="molecular inverse design Huckel with JAX")
-    parser.add_argument("--s", type=int, default=1, help="smile integer for JCP2008 molecules, range [1 to 8]")
+    parser.add_argument("--s", type=int, default=3, help="smile integer for JCP2008 molecules, range [1 to 8]")
     parser.add_argument("--l", type=int, default=0, help="label")
     # parser.add_argument("--lr", type=float, default=2e-2, help="learning rate")
     parser.add_argument("--obj", type=str, default="homo_lumo", help="objective type")

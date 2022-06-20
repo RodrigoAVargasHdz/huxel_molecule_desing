@@ -20,7 +20,7 @@ from huxel.huckel import f_homo_lumo_gap, f_polarizability
 
 PRNGKey = Any 
 
-def get_huckel_params():
+def get_huckel_params(objective:str="homo_lumo",bool_preopt:bool=True ):
 
     # one_pi_elec = []
     # h_x_red = {}
@@ -33,11 +33,20 @@ def get_huckel_params():
     # h_x_red.update({"X": 0.0})
 
     # JCP C,N,P
+
+    if bool_preopt:
+        params = get_pre_opt_params(objective)
+        h_x = params['h_x']
+        h_xy = params['h_xy']
+    else:
+        h_x = H_X
+        h_xy = H_XY
+
     one_pi_elec = ["C", "N1", "P1"]
     h_x_red = {}
     for index, key in enumerate(one_pi_elec):
         if N_ELECTRONS[key] == 1:
-            h_x_red.update({key: H_X[key]})
+            h_x_red.update({key: h_x[key]})
 
     one_pi_elect_ij = []
     h_xy_red = {}
@@ -46,7 +55,7 @@ def get_huckel_params():
             one_pi_elect_ij.append([ni, nj])
             key = frozenset([ni, nj])
             if ni != "X" and nj != "X":
-                h_xy_red.update({key: H_XY[key]})
+                h_xy_red.update({key: h_xy[key]})
             else:
                 h_xy_red.update({key: 0.0})
 
@@ -332,21 +341,49 @@ def get_random_params(files:dict, key:PRNGKey):
         params = get_init_params(files)
         return params, key
 
+def get_pre_opt_params(objective:str="homo_lumo"):
+    cwd = os.getcwd()
+    params_d = os.path.join(cwd, "huxel/data")
 
-def get_init_params(files):
-    params_init = get_default_params()
+    params_onp = onp.load(os.path.join(params_d, f"params_opt_{objective}.npy"), allow_pickle=True)
+
+    hl_a = params_onp.item()["hl_params"]["a"]
+    hl_b = params_onp.item()["hl_params"]["b"]
+    pol_a = params_onp.item()["pol_params"]["a"]
+    pol_b = params_onp.item()["pol_params"]["b"]
+
+    h_x = params_onp.item()["h_x"]
+    h_xy = params_onp.item()["h_xy"]
+    r_xy = params_onp.item()["r_xy"]
+    y_xy = params_onp.item()["y_xy"]
+
+    params = get_params_pytrees(hl_a, hl_b, pol_a, pol_b, h_x, h_xy, r_xy, y_xy)
+
+    if objective.lower() == 'homo_lumo' or objective.lower() == 'hl':
+        params = normalize_params_wrt_C(params) 
+    elif objective.lower() == 'polarizability' or objective.lower() == 'pol': 
+        params = normalize_params_polarizability(params)
+
+    return params
+
+def get_init_params(files:dict, obs:str="homo_lumo"):
+    # params_init = get_default_params()
+    params_init = get_pre_opt_params()
     if os.path.isfile(files["f_w"]):
-        params = jnp.load(files["f_w"], allow_pickle=True)
+        params = onp.load(files["f_w"], allow_pickle=True)
         print(files["f_w"])
         # params_lr,params_coulson = params
-        alpha = params.item()["alpha"]
-        beta = params.item()["beta"]
+        hl_a = params.item()["hl_params"]["a"]
+        hl_b = params.item()["hl_params"]["b"]
+        pol_a = params.item()["pol_params"]["a"]
+        pol_b = params.item()["pol_params"]["b"]
+
         h_x = params.item()["h_x"]
         h_xy = params.item()["h_xy"]
         r_xy = params.item()["r_xy"]
         y_xy = params.item()["y_xy"]
 
-        params = get_params_pytrees(alpha, beta, h_x, h_xy, r_xy, y_xy)
+        params = get_params_pytrees(hl_a, hl_b, pol_a, pol_b, h_x, h_xy, r_xy, y_xy)
 
         f = open(files["f_out"], "a+")
         print("Reading parameters from prev. optimization", file=f)

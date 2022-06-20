@@ -27,7 +27,7 @@ def opt_obj(
         params_extra:Any,
         files:dict,
         _minimizer:str='BFGS',
-        ntr:int=5,
+        ntr:int=15,
         lr:float=2E-1,
 
         ):
@@ -59,6 +59,11 @@ def opt_obj(
             "objective_one_hot": y_obj_one_hot,
             }}
     
+
+    f = open(file_out,'a+')
+    print(f"0 | {y_obj}   {y_obj_one_hot} | {molecule_itr}", file=f)
+    f.close()
+
     params_b_opt = params_b_init.copy()
     y_obj_opt = jnp.inf
     molecule_opt = []

@@ -64,7 +64,7 @@ def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimize
     rng, subkey = jax.random.split(rng)
 
     # ----------------------------------------------------------------- 
-    params_extra = get_huckel_params()
+    params_extra = get_huckel_params(objective, False)
 
     # ----------------------------------------------------------------- 
     (params_b,params_fixed_atoms), subkey = get_initial_params_b(subkey, molec, params_extra["one_pi_elec"])
