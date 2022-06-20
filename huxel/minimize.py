@@ -27,7 +27,7 @@ def opt_obj(
         params_extra:Any,
         files:dict,
         _minimizer:str='BFGS',
-        ntr:int=15,
+        ntr:int=25,
         lr:float=2E-1,
 
         ):
