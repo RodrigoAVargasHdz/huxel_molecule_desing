@@ -9,9 +9,61 @@ Otpimization of HOMO-LUMO gap ($\epsilon_{HL} = \text{LUMO} - \text{HOMO}$), and
 <img align="middle" src="./assets/polarizability.gif" alt="HOMO_LUMO Demo" width="250" height="270" />
 </p>
 
+Our code only considers three different **optimizers**,
+1. BFGS
+2. Gradient desceent
+3. Adam
+(it easily could be extended to others).
 
-# Test
-exectute `main_opt_molec.py` where the options are,
+
+# Example (benzene)
+## Adjacency matrix for benzene
+
+```python:
+    import jax.numpy as jnp
+
+    from huxel.molecule import myMolecule
+    from huxel.optimization_inversemol import _optimization_molec as _opt
+
+    atom_types = ["X", "X", "X", "X", "X", "X"]
+    smile = "C6"
+
+    conectivity_matrix = jnp.array(
+        [
+            [0, 1, 0, 0, 0, 1],
+            [1, 0, 1, 0, 0, 0],
+            [0, 1, 0, 1, 0, 0],
+            [0, 0, 1, 0, 1, 0],
+            [0, 0, 0, 1, 0, 1],
+            [1, 0, 0, 0, 1, 0],
+        ],
+        dtype=int,
+    )
+
+    xyz = jnp.array([[ 1.40000000e+00,  3.70074342e-17,  0.00000000e+00],
+       [ 7.00000000e-01, -1.21243557e+00,  0.00000000e+00],
+       [-7.00000000e-01, -1.21243557e+00,  0.00000000e+00],
+       [-1.40000000e+00,  2.08457986e-16,  0.00000000e+00],
+       [-7.00000000e-01,  1.21243557e+00,  0.00000000e+00],
+       [ 7.00000000e-01,  1.21243557e+00,  0.00000000e+00]])
+
+    molec = myMolecule(
+        "benzene",
+        smile,
+        atom_types,
+        conectivity_matrix,
+        xyz
+    )
+     _opt(0, molec,'homo_lumo','BFGS')
+```
+## Optimization of different molecules
+
+We considered eight different molecules.
+<p align="center">
+<img align="middle" src="./assets/smile_mosaic.png" alt="molecules" width="220" height="180"/>
+</p>
+
+exectute `run_molecule_i.py` where the options are,
 1. `--l`, integer (for random number start `jax.random.PRNGKey(l)`)
 2. `--s`, integer for smile data set (range [1,->,8])
 3. `--obj`, objective to optimize options [homo_lumo,polarizability]
@@ -23,3 +75,5 @@ exectute `main_opt_molec.py` where the options are,
 ```
 jax, optax, jaxopt
 ```
+
+## Paper
