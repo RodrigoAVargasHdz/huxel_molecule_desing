@@ -49,14 +49,21 @@ def get_files(smile_i:int, l:int, objective: str='homo_lumo', _minimizer:str='BF
     return files
 
 def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimizer:str='BFGS', external_field:float=None):
-    now = datetime.datetime.now()
+    t0 = datetime.datetime.now()
 
     cwd = os.getcwd()
     rwd = os.path.join(cwd,'Results')
 
+    # ----------------------------------------------------------------- 
     files = get_files(molec.id, l, objective, _minimizer, cwd)
-    print(files)
+    resd = files['rwd']
+    file_out = os.path.join(resd,files['out'])
 
+    f = open(file_out,'a+')
+    print(t0, file=f)
+    f.close()
+
+    # ----------------------------------------------------------------- 
     objective_name = get_objective_name(objective)
     f_beta = _f_beta("c")
 
@@ -64,7 +71,7 @@ def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimize
     rng, subkey = jax.random.split(rng)
 
     # ----------------------------------------------------------------- 
-    params_extra = get_huckel_params(objective, False)
+    params_extra = get_huckel_params(objective, bool_preopt=True) 
 
     # ----------------------------------------------------------------- 
     (params_b,params_fixed_atoms), subkey = get_initial_params_b(subkey, molec, params_extra["one_pi_elec"])
@@ -86,7 +93,6 @@ def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimize
     # -----------------------------------------------------------------
 
     file_r = files['results']
-    resd = files['rwd']
 
     jnp.save(
         os.path.join(resd,file_r),
@@ -98,9 +104,7 @@ def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimize
 
 
     # -----------------------------------------------------------------
-    file_out = os.path.join(resd,files['out'])
     f = open(file_out,'a+')
-    print("----------------------------------",file=f)
     print(f"l = {l}",file=f)
     print(f"{molec.smile}",file=f)
     print(f"Smile id = {molec.id}",file=f)
@@ -126,7 +130,8 @@ def _optimization_molec(l: int, molec:Any, objective: str='homo_lumo', _minimize
     for index, key in enumerate(norm_params_b_opt):
         print(f"atom {key}",norm_params_b_opt[key],file=f)
     print("----------------------------------",file=f)
-    print(now,file=f)
+    tf = datetime.datetime.now()
+    print(tf,file=f)
     f.close()
 
     # assert 0

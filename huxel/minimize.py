@@ -1,11 +1,5 @@
-from binascii import Incomplete
 import os
-import time
-import datetime
-from tracemalloc import get_object_traceback
-import weakref
 import numpy as onp
-import argparse
 from typing import Any, Callable
 
 import jax
@@ -27,7 +21,7 @@ def opt_obj(
         params_extra:Any,
         files:dict,
         _minimizer:str='BFGS',
-        ntr:int=25,
+        ntr:int=30,
         lr:float=2E-1,
 
         ):
@@ -47,10 +41,13 @@ def opt_obj(
     params_b = params_b_init
 
     params_b, (y_obj,grad_y_obj) = opt_step(params_b)
+
     molecule_itr, params_b_one_hot = get_molecule(
-        {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
-    )
+                                    {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
+                                    )
+    
     y_obj_one_hot = f_obj(params_b_one_hot)
+
     r = {0:{
             "molecule": molecule_itr,
             "params_b": params_b,
@@ -59,7 +56,6 @@ def opt_obj(
             "objective_one_hot": y_obj_one_hot,
             }}
     
-
     f = open(file_out,'a+')
     print(f"0 | {y_obj}   {y_obj_one_hot} | {molecule_itr}", file=f)
     f.close()
@@ -70,7 +66,7 @@ def opt_obj(
     for itr in range(1,ntr+1):
         params_b, (y_obj,grad_y_obj) = opt_step(params_b)
         molecule_itr, params_b_one_hot = get_molecule(
-            {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
+                {**params_b,**params_fixed_atoms}, params_extra["one_pi_elec"]
         )
         y_obj = f_obj(params_b)
         y_obj_one_hot = f_obj(params_b_one_hot)
@@ -119,7 +115,7 @@ def wrapper_opt_method(f_obj:Callable,method:str='BFGS',lr:float=2E-1):
                 return params_b, (y_obj,grad_y_obj)
         return wrapper
 
-    elif method == 'GD' or method == 'gradient_descent':
+    elif method == 'GD' or method == 'SG' or method == 'gradient_descent':
         def wrapper(params_b:Any,*args):
             def gd_step(params_b:Any):
                 y_obj, grad_y_obj = value_and_grad(f_obj)(params_b)
@@ -128,7 +124,7 @@ def wrapper_opt_method(f_obj:Callable,method:str='BFGS',lr:float=2E-1):
             return gd_step(params_b)
         return wrapper
 
-    elif method == 'Adam' or method == 'adam': # (Incomplete)
+    elif method == 'Adam' or method == 'adam':
         def wrapper(params_b:Any,*args):
             optimizer = optax.adam(learning_rate=lr)
             def adam_step(params_b:Any):
