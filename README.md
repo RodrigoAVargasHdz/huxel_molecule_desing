@@ -1,9 +1,9 @@
 # Molecule inverse design with automatic differentiation: Hückel + JAX
 
-Using JAX and the Hückel model we optimize the type of atoms given an adjacency matrix of a molecular graph and the target observable.
+Using JAX we optimize the type of atoms given an adjacency matrix of a molecular graph and the target observable. All observables were computed with the Hückel model.
 
 
-Otpimization of HOMO-LUMO gap ($\epsilon_{HL} = \text{LUMO} - \text{HOMO}$), and polarizability ($\langle \alpha\rangle$),
+Otpimization of HOMO-LUMO gap ($\epsilon_{HL}$), and polarizability ($\langle \alpha\rangle$),
 <p align="center">
 <img align="middle" src="./assets/homo_lumo.gif" alt="HOMO_LUMO Demo" width="270" height="250" />
 <img align="middle" src="./assets/polarizability.gif" alt="HOMO_LUMO Demo" width="250" height="270" />
