@@ -13,7 +13,8 @@ Our code only considers three different **optimizers**,
 1. BFGS
 2. Gradient desceent
 3. Adam
-(it easily could be extended to others).
+   
+To extended to other optimization methods, check `wrapper_opt_method` in `huxel/minimize.py`.
 
 
 # Example (benzene)
@@ -26,7 +27,7 @@ Our code only considers three different **optimizers**,
     from huxel.optimization_inversemol import _optimization_molec as _opt
 
     atom_types = ["X", "X", "X", "X", "X", "X"]
-    smile = "C6"
+    smile = "C6" #name label
 
     conectivity_matrix = jnp.array(
         [
@@ -54,13 +55,16 @@ Our code only considers three different **optimizers**,
         conectivity_matrix,
         xyz
     )
-     _opt(0, molec,'homo_lumo','BFGS')
+
+    l = 0 # jax.random.PRNGKey(l)
+    _opt(l, molec,'homo_lumo','BFGS')
 ```
+
 ## Optimization of different molecules
 
 We considered eight different molecules.
 <p align="center">
-<img align="middle" src="./assets/smile_mosaic.png" alt="molecules" width="220" height="180"/>
+<img align="middle" src="./assets/smile_mosaic.png" alt="molecules" width="280" height="150"/>
 </p>
 
 exectute `run_molecule_i.py` where the options are,
