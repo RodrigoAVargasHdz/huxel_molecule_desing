@@ -1,26 +1,50 @@
 import jax
 import jax.numpy as jnp
 from jax import random
-from jax import jit, vmap, lax, value_and_grad, jacfwd
-from jax.tree_util import tree_flatten, tree_unflatten, tree_multimap
+from jax import vmap, value_and_grad
+from jax.tree_util import tree_flatten, tree_multimap
 from jax.nn import softmax
 
 from huxel.parameters import H_X, N_ELECTRONS, H_X, H_XY
 from huxel.molecule import myMolecule
 from huxel.beta_functions import _f_beta
 
-from typing import Any
+from typing import Any, Tuple
 
 
-def f_homo_lumo_gap(params_b:dict, params_extra:dict, molecule:Any, f_beta:callable):
+def f_homo_lumo_gap(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: callable) -> float:
+    """Hückel model HOMO-LUMO gap prediction (linear transformation)
+
+    Args:
+        params_b (dict): parameters b
+        params_extra (dict): additional parameters (Hückel model)
+        molecule (class): molecule class
+        f_beta (callable): atom-atom interaction
+
+    Returns:
+        float: value of the HOMO-LUMO gap predicted with the Hückel model
+    """
 
     z_pred, extra = _homo_lumo_gap(params_b, params_extra, molecule, f_beta)
-    y_pred = params_extra["hl_params"]["a"]*z_pred + params_extra["hl_params"]["b"]
+    y_pred = params_extra["hl_params"]["a"] * \
+        z_pred + params_extra["hl_params"]["b"]
     return jnp.sum(y_pred)  # , (z_pred, extra)
 
 
-def _homo_lumo_gap(params_b:dict, params_extra:dict, molecule:Any, f_beta:callable):
-    h_m, electrons = _construct_huckel_matrix(params_b, params_extra, molecule, f_beta)
+def _homo_lumo_gap(params_b: dict, params_extra: dict, molecule: Any, f_beta: callable) -> Tuple:
+    """Hückel model HOMO-LUMO gap prediction
+
+    Args:
+        params_b (dict): parameters b
+        params_extra (dict): additional parameters (Hückel model)
+        molecule (Any): molecule class
+        f_beta (callable): atom-atom interaction
+
+    Returns:
+        float: HOMO-LUMO gap, Hückel matrix, eigenvalues
+    """
+    h_m, electrons = _construct_huckel_matrix(
+        params_b, params_extra, molecule, f_beta)
     e_, _ = _solve(h_m)
 
     n_orbitals = h_m.shape[0]
@@ -38,32 +62,88 @@ def _homo_lumo_gap(params_b:dict, params_extra:dict, molecule:Any, f_beta:callab
     return val, (h_m, e_)
 
 # -----------------------------------------------------------------------------
-def f_polarizability(params_b:dict, params_extra:dict, molecule:Any, f_beta:callable, external_field:Any = None):
-    z_pred = _f_polarizability(params_b, params_extra, molecule,  f_beta, external_field)
-    y_pred = z_pred + params_extra["pol_params"]["b"]
-    return jnp.sum(y_pred) #,z_pred,y_true
 
-def _f_polarizability(params_b:dict, params_extra:dict, molecule:Any, f_beta:callable, external_field:Any = None):
-    polarizability_tensor = jax.hessian(f_energy,argnums=(4))(params_b, params_extra,molecule,f_beta,external_field)
+
+def f_polarizability(params_b: dict, params_extra: dict, molecule:  myMolecule, f_beta: callable, external_field: Any = None) -> float:
+    """Hückel model polarizability prediction (linear transformation)
+
+    Args:
+        params_b (dict): parameters b
+        params_extra (dict): additional parameters (Hückel model)
+        molecule (class): molecule class
+        f_beta (callable): atom-atom interaction
+        external_field (Any): external field
+
+    Returns:
+        float: value of the polarizability predicted with the Hückel model
+    """
+    z_pred = _f_polarizability(
+        params_b, params_extra, molecule,  f_beta, external_field)
+    y_pred = z_pred + params_extra["pol_params"]["b"]
+    return jnp.sum(y_pred)  # ,z_pred,y_true
+
+
+def _f_polarizability(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: callable, external_field: Any = None) -> float:
+    """Hückel model polarizability prediction 
+
+    Args:
+        params_b (dict): parameters b
+        params_extra (dict): additional parameters (Hückel model)
+        molecule (class): molecule class
+        f_beta (callable): atom-atom interaction
+        external_field (Any): external field
+
+    Returns:
+        float: value of the polarizability predicted with the Hückel model
+    """
+    polarizability_tensor = jax.hessian(f_energy, argnums=(4))(
+        params_b, params_extra, molecule, f_beta, external_field)
     polarizability = (1/3.)*jnp.trace(polarizability_tensor)
     return polarizability
 
-def f_energy(params_b:dict, params_extra:dict, molecule:any, f_beta:callable, external_field:Any = None):
-    h_m,electrons = _construct_huckel_matrix(params_b, params_extra, molecule, f_beta)
+
+def f_energy(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: callable, external_field: Any = None) -> float:
+    """Hückel model's energy
+
+    Args:
+        params_b (dict): type of atoms 
+        params_extra (dict): additional parameters (Hückel model)
+        molecule (class): molecule class
+        f_beta (callable): atom-atom interaction
+        external_field (Any, optional): External field. Defaults to None.
+
+    Returns:
+        Any: Energy
+    """
+    h_m, electrons = _construct_huckel_matrix(
+        params_b, params_extra, molecule, f_beta)
 
     if external_field != None:
-        h_m_field = _construct_huckel_matrix_field(molecule,external_field)
+        h_m_field = _construct_huckel_matrix_field(molecule, external_field)
         h_m = h_m + h_m_field
-    
-    e_,_ = _solve(h_m)
+
+    e_, _ = _solve(h_m)
 
     n_orbitals = h_m.shape[0]
-    occupations, spin_occupations, n_occupied, n_unpaired = _set_occupations(jax.lax.stop_gradient(electrons),jax.lax.stop_gradient(e_),jax.lax.stop_gradient(n_orbitals))
-    return jnp.dot(occupations,e_)
+    occupations, spin_occupations, n_occupied, n_unpaired = _set_occupations(
+        jax.lax.stop_gradient(electrons), jax.lax.stop_gradient(e_), jax.lax.stop_gradient(n_orbitals))
+    return jnp.dot(occupations, e_)
 
 
 # -------
-def _construct_huckel_matrix(params_b, params_extra, molecule, f_beta):
+def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: callable) -> Tuple:
+    """Hückel matrix
+
+    Args:
+        params_b (dict): type of atoms
+        params_extra (dict): additional parameters (Hückel model)
+        molecule (myMolecule): molecule class
+        f_beta (callable): atom-atom interaction
+
+    Returns:
+        Tuple: Hückel matrix, number of electrons
+    """
+
     # atom_types,conectivity_matrix = molecule
     atom_types = molecule.atom_types
     conectivity_matrix = molecule.conectivity_matrix
@@ -102,30 +182,75 @@ def _construct_huckel_matrix(params_b, params_extra, molecule, f_beta):
 
     return huckel_matrix, electrons
 
-def _construct_huckel_matrix_field(molecule,field):
-    # atom_types = molecule.atom_types   
+
+def _construct_huckel_matrix_field(molecule: myMolecule, field: Any) -> Any:
+    """Diagonal elements of Hückel matrix in the presence of an external field
+
+    Args:
+        molecule (myMolecule): molecule class
+        field (Any): external field
+
+    Returns:
+        Any: Diagonal of the Hückel matrix in the presence of an external field
+    """
+    # atom_types = molecule.atom_types
     xyz = molecule.xyz
     # diagonal terms
-    diag_ri = jnp.asarray([jnp.diag(xyz[:,i])for i in range(3)])
-    field_r = lambda fi,xi: fi*xi
-    diag_ri_tensor = vmap(field_r,in_axes=(0,0))(field,diag_ri)
-    diag_ri = jnp.sum(diag_ri_tensor,axis=0)
+    diag_ri = jnp.asarray([jnp.diag(xyz[:, i])for i in range(3)])
+    def field_r(fi, xi): return fi*xi
+    diag_ri_tensor = vmap(field_r, in_axes=(0, 0))(field, diag_ri)
+    diag_ri = jnp.sum(diag_ri_tensor, axis=0)
     return diag_ri
 
-def _electrons(atom_types):
+
+def _electrons(atom_types: list) -> Any:
+    """number of electrons per atom-site
+
+    Args:
+        atom_types (list): type of atoms
+
+    Returns:
+        Any: number of electrons
+    """
     return jnp.stack([N_ELECTRONS[atom_type] for atom_type in atom_types])
 
 
-def _solve(huckel_matrix):
+def _solve(huckel_matrix: Any) -> Tuple:
+    """Return the eigenvalues and eigenvectors of the Hückel matrix
+
+    Args:
+        huckel_matrix (Any):  Hückel matrix
+
+    Returns:
+        Tuple: Eigenvalues and Eigenvectors
+    """
     eig_vals, eig_vects = jnp.linalg.eigh(huckel_matrix)
     return eig_vals[::-1], eig_vects.T[::-1, :]
 
 
-def _get_multiplicty(n_electrons):
+def _get_multiplicty(n_electrons: int) -> int:
+    """Multiplicity
+
+    Args:
+        n_electrons (int): number of electrons
+
+    Returns:
+        Any: multiplicity
+    """
     return (n_electrons % 2) + 1
 
 
-def _set_occupations(electrons, energies, n_orbitals):
+def _set_occupations(electrons: int, energies: Any, n_orbitals: int) -> Tuple:
+    """Occupation
+
+    Args:
+        electrons (int): number of electrons
+        energies (Any): Hückel's eigenvalues
+        n_orbitals (int): number of orbitals
+
+    Returns:
+        Tuple: occupation, spin occupation, number of occupied orbitals, number of unpair electrons
+    """
     charge = 0
     n_dec_degen = 3
     n_electrons = jnp.sum(electrons) - charge
@@ -146,7 +271,8 @@ def _set_occupations(electrons, energies, n_orbitals):
     # Loop over unique rounded orbital energies and degeneracies and fill with
     # electrons
     energies_rounded = energies.round(n_dec_degen)
-    unique_energies, degeneracies = jnp.unique(energies_rounded, return_counts=True)
+    unique_energies, degeneracies = jnp.unique(
+        energies_rounded, return_counts=True)
     for energy, degeneracy in zip(jnp.flip(unique_energies), jnp.flip(degeneracies)):
         if len(all_electrons) == 0:
             break
@@ -173,7 +299,8 @@ def _set_occupations(electrons, energies, n_orbitals):
         )
 
     n_occupied = jnp.count_nonzero(occupations)
-    n_unpaired = int(jnp.sum(occupations[:n_occupied][occupations[:n_occupied] != 2]))
+    n_unpaired = int(
+        jnp.sum(occupations[:n_occupied][occupations[:n_occupied] != 2]))
     return occupations, spin_occupations, n_occupied, n_unpaired
 
 
@@ -182,7 +309,7 @@ def _set_occupations(electrons, energies, n_orbitals):
 
 
 def update_params(p, g, alpha=0.1):
-    inner_sgd_fn = lambda g, params: (params - alpha * g)
+    def inner_sgd_fn(g, params): return (params - alpha * g)
     return tree_multimap(inner_sgd_fn, g, p)
 
 

@@ -14,7 +14,17 @@ PRNGKey = Any
 
 # --------------------------------
 #     DATA
-def batch_to_list(batch):
+
+
+def batch_to_list(batch: Any) -> Any:
+    """Atom types of a batch to list
+
+    Args:
+        batch (Any): batch
+
+    Returns:
+        Any: transformed list
+    """
     # numpy array to list
     batch = batch.tolist()
     for b in batch:
@@ -23,7 +33,7 @@ def batch_to_list(batch):
     return batch
 
 
-def batch_to_list_class(batch):
+def batch_to_list_class(batch:Any)->Any:
     #     pytree to class-myMolecule
     batch = batch_to_list(batch)
     batch_ = []
