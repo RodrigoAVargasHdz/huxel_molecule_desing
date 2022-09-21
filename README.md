@@ -2,7 +2,6 @@
 
 Using JAX we optimize the type of atoms given an adjacency matrix of a molecular graph and the target observable. All observables were computed with the Hückel model.
 
-
 Otpimization of HOMO-LUMO gap ($\epsilon_{HL}$), and polarizability ($\langle \alpha\rangle$),
 <p align="center">
 <img align="middle" src="./assets/homo_lumo.gif" alt="HOMO_LUMO Demo" width="270" height="250" />
@@ -14,22 +13,21 @@ Our code only considers three different **optimizers**,
 1. BFGS
 2. Gradient descent
 3. Adam
-   
-To extended to other optimization methods, check `wrapper_opt_method` in `huxel/minimize.py`.
 
+To extended to other optimization methods, check `wrapper_opt_method` in `huxel/minimize.py`.
 
 # Example (benzene)
 
-## Adjacency matrix for benzene
+### Adjacency matrix for benzene (`run_benzene.py`)
 
 ```python:
     import jax.numpy as jnp
 
-    from huxel.molecule import myMolecule
-    from huxel.optimization_inversemol import _optimization_molec as _opt
+    from huxel import myMolecule
+    from huxel import optimization as _opt
 
     atom_types = ["X", "X", "X", "X", "X", "X"]
-    smile = "C6" #name label
+    smile = "C6" # name label
 
     connectivity_matrix = jnp.array(
         [
@@ -58,7 +56,7 @@ To extended to other optimization methods, check `wrapper_opt_method` in `huxel/
         xyz
     )
 
-    l = 0 # jax.random.PRNGKey(l)
+    l = 0
     _opt(l, molec,'homo_lumo','BFGS')
 ```
 
@@ -76,7 +74,6 @@ execute `run_molecule_i.py` where the options are,
 3. `--obj`, objective to optimize options `[homo_lumo, polarizability]`
 4. `--opt`, optimization method `[adam, GD, BFGS]`
 5. `--extfield`, external field magnitude (only for polarizability)
-
 
 ## Requirements
 
