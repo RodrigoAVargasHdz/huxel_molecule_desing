@@ -6,10 +6,11 @@ Using JAX we optimize the type of atoms given an adjacency matrix of a molecular
 Otpimization of HOMO-LUMO gap ($\epsilon_{HL}$), and polarizability ($\langle \alpha\rangle$),
 <p align="center">
 <img align="middle" src="./assets/homo_lumo.gif" alt="HOMO_LUMO Demo" width="270" height="250" />
-<img align="middle" src="./assets/polarizability.gif" alt="HOMO_LUMO Demo" width="250" height="270" />
+<img align="middle" src="./assets/polarizability.gif" alt="HOMO_LUMO Demo" width="260" height="250" />
 </p>
 
 Our code only considers three different **optimizers**,
+
 1. BFGS
 2. Gradient desceent
 3. Adam
@@ -18,6 +19,7 @@ To extended to other optimization methods, check `wrapper_opt_method` in `huxel/
 
 
 # Example (benzene)
+
 ## Adjacency matrix for benzene
 
 ```python:
@@ -29,7 +31,7 @@ To extended to other optimization methods, check `wrapper_opt_method` in `huxel/
     atom_types = ["X", "X", "X", "X", "X", "X"]
     smile = "C6" #name label
 
-    conectivity_matrix = jnp.array(
+    connectivity_matrix = jnp.array(
         [
             [0, 1, 0, 0, 0, 1],
             [1, 0, 1, 0, 0, 0],
@@ -52,7 +54,7 @@ To extended to other optimization methods, check `wrapper_opt_method` in `huxel/
         "benzene",
         smile,
         atom_types,
-        conectivity_matrix,
+        connectivity_matrix,
         xyz
     )
 
@@ -67,15 +69,17 @@ We considered eight different molecules.
 <img align="middle" src="./assets/smile_mosaic.png" alt="molecules" width="280" height="150"/>
 </p>
 
-exectute `run_molecule_i.py` where the options are,
-1. `--l`, integer (for random number start `jax.random.PRNGKey(l)`)
+execute `run_molecule_i.py` where the options are,
+
+1. `--l`, integer (to initialize `jax.random.PRNGKey(l)`)
 2. `--s`, integer for smile data set (range [1, ..., 8])
 3. `--obj`, objective to optimize options [homo_lumo,polarizability]
 4. `--opt`, optimization method [adam,GD,BFGS]
-5. `--extfield`, external field value (only for polarizability)
+5. `--extfield`, external field magnitude (only for polarizability)
 
 
 ## Requirments
+
 ```
 jax, optax, jaxopt
 ```
