@@ -113,7 +113,7 @@ def get_initial_params_b(subkey: Any, molec: Any, one_pi_elec: list) -> Tuple:
 
 
 def get_initial_params_b_benzene(subkey: Any, molec: Any, one_pi_elec: Any) -> Tuple:
-    """Inital parameters for Benzene (test)
+    """Initial parameters for Benzene (test)
 
     Args:
         subkey (Any): a PRNG key used as the random key.
