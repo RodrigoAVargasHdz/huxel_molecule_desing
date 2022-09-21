@@ -4,6 +4,15 @@ import numpy as onp
 import jax
 import jax.numpy as jnp
 
+
+au_to_eV = 27.211
+Bohr_to_AA = 0.529177
+
+f_div_pytrees = lambda x, y: y/x
+f_dif_pytrees = lambda x, y: y-x
+f_sum_pytrees = lambda x, y: y+x
+f_mult_pytrees = lambda x, y: y*x
+
 BEVERIDGE_HINZE = {
     "gamma_xy": "beveridge-hinze",
     "exponent": "beveridge-hinze",
@@ -215,7 +224,7 @@ N_ELECTRONS = {
     "S1": 1,
     "S2": 2,
     "Si": 1,
-    "X": 0,
+    "X": 1,
 }
 
 H_X = {
@@ -338,6 +347,8 @@ Y_XY = H_XY
 y_xy_flat, y_xy_tree = jax.tree_util.tree_flatten(Y_XY)
 Y_XY = jax.tree_util.tree_unflatten(y_xy_tree, 0.3 * jnp.ones((len(y_xy_flat),)))
 
+Y_XY_AA = Y_XY = jax.tree_util.tree_unflatten(y_xy_tree,(0.3)*jnp.ones((len(y_xy_flat),))) 
+Y_XY_Bohr = jax.tree_util.tree_unflatten(y_xy_tree,(0.3/Bohr_to_AA)*jnp.ones((len(y_xy_flat),))) 
 
 # J. Chem. Soc. Perkin Trans. II, S1–S19, 1987.
 R_XY = {
@@ -434,6 +445,9 @@ R_XY = {
     frozenset(["Si", "Si"]): 2.359,
 }
 
+r_xy_flat, r_xy_tree = jax.tree_util.tree_flatten(R_XY)
+R_XY_AA = R_XY
+R_XY_Bohr = jax.tree_util.tree_unflatten(r_xy_tree,(1./Bohr_to_AA)*jnp.ones((len(r_xy_flat),))) 
 
 # Values taken from https://cccbdb.nist.gov/diatomicexpbondx.asp
 R_XY_diatomics_NIST = {
@@ -529,6 +543,3 @@ R_XY_diatomics_NIST = {
     frozenset(["S2", "Si"]): 1.929,
     frozenset(["Si", "Si"]): 2.246,
 }
-
-f_div_pytrees = lambda x, y: y / x
-f_dif_pytrees = lambda x, y: y - x
