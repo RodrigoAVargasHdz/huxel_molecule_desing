@@ -72,13 +72,13 @@ We considered eight different molecules.
 execute `run_molecule_i.py` where the options are,
 
 1. `--l`, integer (to initialize `jax.random.PRNGKey(l)`)
-2. `--s`, integer for smile data set (range [1, ..., 8])
-3. `--obj`, objective to optimize options [homo_lumo,polarizability]
-4. `--opt`, optimization method [adam,GD,BFGS]
+2. `--s`, integer for smile data set (range `[1, ..., 8]`)
+3. `--obj`, objective to optimize options `[homo_lumo, polarizability]`
+4. `--opt`, optimization method `[adam, GD, BFGS]`
 5. `--extfield`, external field magnitude (only for polarizability)
 
 
-## Requirments
+## Requirements
 
 ```
 jax, optax, jaxopt
