@@ -12,7 +12,7 @@ Otpimization of HOMO-LUMO gap ($\epsilon_{HL}$), and polarizability ($\langle \a
 Our code only considers three different **optimizers**,
 
 1. BFGS
-2. Gradient desceent
+2. Gradient descent
 3. Adam
    
 To extended to other optimization methods, check `wrapper_opt_method` in `huxel/minimize.py`.
@@ -66,7 +66,7 @@ To extended to other optimization methods, check `wrapper_opt_method` in `huxel/
 
 We considered eight different molecules.
 <p align="center">
-<img align="middle" src="./assets/smile_mosaic.png" alt="molecules" width="280" height="150"/>
+<img align="middle" src="./assets/smile_mosaic.png" alt="molecules" width="300" height="170"/>
 </p>
 
 execute `run_molecule_i.py` where the options are,
