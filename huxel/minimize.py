@@ -21,7 +21,7 @@ def opt_obj(
         params_extra: Any,
         files: dict,
         _minimizer: str = 'BFGS',
-        ntr: int = 30,
+        ntr: int = 20,
         lr: float = 2E-1,
 
 ) -> Tuple:

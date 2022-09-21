@@ -146,7 +146,7 @@ def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMol
 
     # atom_types,conectivity_matrix = molecule
     atom_types = molecule.atom_types
-    conectivity_matrix = molecule.conectivity_matrix
+    connectivity_matrix = molecule.connectivity_matrix
     # dm = molecule.dm
 
     h_x = params_extra["h_x"]
@@ -161,11 +161,11 @@ def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMol
     norm_params_b = jax.tree_map(lambda x: softmax(x), params_b)
     norm_params_b_flat, norm_params_b_tree = tree_flatten(norm_params_b)
     norm_params_b_flat = jnp.array(norm_params_b_flat)
-    huckel_matrix = jnp.zeros_like(conectivity_matrix, dtype=jnp.float32)
+    huckel_matrix = jnp.zeros_like(connectivity_matrix, dtype=jnp.float32)
 
     zi_triu_up = jnp.triu_indices(norm_params_b[0].shape[0], 0)
     # off diagonal terms
-    for i, j in zip(*jnp.nonzero(conectivity_matrix)):
+    for i, j in zip(*jnp.nonzero(connectivity_matrix)):
         x = norm_params_b_flat[i]
         y = norm_params_b_flat[j]
         z = jnp.multiply(x[jnp.newaxis], y[jnp.newaxis].T)

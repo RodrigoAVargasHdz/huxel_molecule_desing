@@ -61,7 +61,7 @@ def main():
     # homo_lumo_grap_ref = -7.01 - (-0.42)
 
     molec = myMolecule(
-        "benzene",
+        "benzene_test",
         smile,
         atom_types,
         connectivity_matrix,

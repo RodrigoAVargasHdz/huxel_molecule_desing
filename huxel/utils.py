@@ -407,10 +407,8 @@ def get_init_params_homo_lumo() -> Tuple:
     Returns:
         Any: linear parameters prev. optimized with HOMO-LUMO gap reference data
     """
-    # params_lr = onp.load("huxel/data/lr_params.npy", allow_pickle=True)
-    # params_lr.item()["alpha"] * jnp.ones(1)
     alpha = jnp.array([-2.252276274030775])
-    beta = jnp.array([2.053257355175381])  # params_lr.item()["beta"]
+    beta = jnp.array([2.053257355175381])
     return jnp.array(alpha), jnp.array(beta)
 
 
@@ -424,9 +422,8 @@ def get_init_params_polarizability() -> tuple:
     Returns:
         Any: linear parameters prev. optimized with polarizability reference data
     """
-    # params_lr = onp.load("huxel/data/lr_params.npy", allow_pickle=True)
     alpha = jnp.ones(1)
-    beta = jnp.array([116.20943344747411])  # params_lr.item()["beta"]
+    beta = jnp.array([116.20943344747411])
     return jnp.array(alpha), jnp.array(beta)
 
 

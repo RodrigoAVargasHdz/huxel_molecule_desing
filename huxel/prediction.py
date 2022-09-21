@@ -1,6 +1,7 @@
 import os
 import time
 import datetime
+from xmlrpc.client import boolean
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -22,7 +23,17 @@ from jax.config import config
 jax.config.update("jax_enable_x64", True)
 
 
-def get_r_dir(method, list_Wdecay, bool_randW):
+def get_r_dir(method: str, list_Wdecay: list, bool_randW: bool) -> str:
+    """name of results folder
+
+    Args:
+        method (str): optimization method
+        list_Wdecay (list): list of parameters for weight decay
+        bool_randW (bool): boolean for random initial parameters
+
+    Returns:
+        str: name of results folder
+    """
     flat_list_Wdecay = "_".join(list_Wdecay)
 
     if len(list_Wdecay) > 0:
@@ -40,7 +51,25 @@ def get_r_dir(method, list_Wdecay, bool_randW):
     return r_dir
 
 
-def get_files_names(N, l, beta, list_Wdecay=None, opt_name="AdamW", randW=False):
+def get_files_names(N: int,
+                    l: int,
+                    beta: str,
+                    list_Wdecay: list = None,
+                    opt_name: str = "AdamW",
+                    randW: bool = False) -> dict:
+    """dictionary with all needed files' names
+
+    Args:
+        N (int): training data
+        l (int): label
+        beta (str): _description_
+        list_Wdecay (list, optional): list of parameters for weight decay. Defaults to None.
+        opt_name (str, optional): optimization method. Defaults to "AdamW".
+        randW (bool, optional): boolean for random initial parameters. Defaults to False.
+
+    Returns:
+        dict: _description_
+    """
     # r_dir = './Results_xyz/'
     r_dir = get_r_dir(beta, list_Wdecay, randW)
 
@@ -100,7 +129,7 @@ def _pred(n_tr=50, l=0, beta="exp", list_Wdecay=None, bool_randW=False):
                 # perm = jax.random.permutation(key, jnp.arange(N))
                 idx = jnp.arange(0, N, dtype=int)
                 for i in range(n_batches):
-                    batch_idx = idx[i * batch_size : (i + 1) * batch_size]
+                    batch_idx = idx[i * batch_size: (i + 1) * batch_size]
                     yield D[batch_idx.tolist()]
 
         batches = data_stream()
