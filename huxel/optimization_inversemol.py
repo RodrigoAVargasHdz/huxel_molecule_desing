@@ -76,6 +76,7 @@ def _optimization_molec(l: int,
 
     def f_obj(w): return f_obj_all(w, params_fixed_atoms,
                                    params_extra, molec, f_beta, external_field)
+
     y_obj_initial = f_obj(params_b)
 
     # minimize

@@ -26,9 +26,10 @@ def f_homo_lumo_gap(params_b: dict, params_extra: dict, molecule: myMolecule, f_
     """
 
     z_pred, extra = _homo_lumo_gap(params_b, params_extra, molecule, f_beta)
+    h_m, e_ = extra
     y_pred = params_extra["hl_params"]["a"] * \
         z_pred + params_extra["hl_params"]["b"]
-    return jnp.sum(y_pred)  # , (z_pred, extra)
+    return jnp.sum(y_pred)  # , h_m  # , (z_pred, extra)
 
 
 def _homo_lumo_gap(params_b: dict, params_extra: dict, molecule: Any, f_beta: callable) -> Tuple:
@@ -59,7 +60,7 @@ def _homo_lumo_gap(params_b: dict, params_extra: dict, molecule: Any, f_beta: ca
     homo_energy = e_[homo_idx]
     lumo_energy = e_[lumo_idx]
     val = lumo_energy - homo_energy
-    return val, (h_m, e_)
+    return jnp.sum(val), (h_m, e_)
 
 # -----------------------------------------------------------------------------
 
@@ -127,10 +128,78 @@ def f_energy(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: c
     n_orbitals = h_m.shape[0]
     occupations, spin_occupations, n_occupied, n_unpaired = _set_occupations(
         jax.lax.stop_gradient(electrons), jax.lax.stop_gradient(e_), jax.lax.stop_gradient(n_orbitals))
-    return jnp.dot(occupations, e_)
+    return jnp.dot(occupations, e_)  # , h_m
 
 
 # -------
+def _construct_huckel_matrix_test(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: callable) -> Tuple:
+    """Hückel matrix
+
+    Args:
+        params_b (dict): type of atoms
+        params_extra (dict): additional parameters (Hückel model)
+        molecule (myMolecule): molecule class
+        f_beta (callable): atom-atom interaction
+
+    Returns:
+        Tuple: Hückel matrix, number of electrons
+    """
+
+    # atom_types,conectivity_matrix = molecule
+    atom_types = molecule.atom_types
+    connectivity_matrix = molecule.connectivity_matrix
+    # dm = molecule.dm
+
+    h_x = params_extra["h_x"]
+    h_xy = params_extra["h_xy"]
+    print([key for _, key in enumerate(h_xy)])
+    one_pi_elec = params_extra["one_pi_elec"]
+    print(one_pi_elec)
+
+    h_xy_flat, h_xy_tree = tree_flatten(h_xy)
+    h_xy_flat = jnp.asarray(h_xy_flat)
+    h_x_flat, h_x_tree = tree_flatten(h_x)
+    h_x_flat = jnp.asarray(h_x_flat)
+
+    norm_params_b = jax.tree_map(lambda x: softmax(x), params_b)
+    norm_params_b_flat, norm_params_b_tree = tree_flatten(norm_params_b)
+    norm_params_b_flat = jnp.array(norm_params_b_flat)
+    huckel_matrix = jnp.zeros_like(connectivity_matrix, dtype=jnp.float32)
+
+    # norm_params_b[0].shape[0]
+    zi_triu_up = jnp.triu_indices(norm_params_b[0].shape[0], 0)
+    print(connectivity_matrix)
+    print(jnp.nonzero(connectivity_matrix))
+    # off diagonal terms
+    for i, j in zip(*jnp.nonzero(connectivity_matrix)):
+        print(i, j)
+        x = norm_params_b_flat[i]
+        y = norm_params_b_flat[j]
+        print(x, y)
+        Z = jnp.multiply(x[jnp.newaxis], y[jnp.newaxis].T)
+        print(Z)
+        z = Z[zi_triu_up]
+        zt = Z.T[zi_triu_up]
+        z = z + zt
+        print(z)
+        print(zt)
+        print(h_xy_flat)
+        z_ij = jnp.matmul(z, h_xy_flat)
+        print(z_ij)
+        huckel_matrix = huckel_matrix.at[i, j].set(z_ij)
+        # huckel_matrix = huckel_matrix.at[i, j].set(1.)
+        # assert 0
+
+    # diagonal terms
+    for i, c in enumerate(atom_types):
+        z = jnp.vdot(h_x_flat, norm_params_b[i])
+        huckel_matrix = huckel_matrix.at[i, i].set(z)
+
+    electrons = _electrons(atom_types)
+
+    return huckel_matrix, electrons
+
+
 def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: callable) -> Tuple:
     """Hückel matrix
 
@@ -163,13 +232,14 @@ def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMol
     norm_params_b_flat = jnp.array(norm_params_b_flat)
     huckel_matrix = jnp.zeros_like(connectivity_matrix, dtype=jnp.float32)
 
+    # norm_params_b[0].shape[0]
     zi_triu_up = jnp.triu_indices(norm_params_b[0].shape[0], 0)
     # off diagonal terms
     for i, j in zip(*jnp.nonzero(connectivity_matrix)):
         x = norm_params_b_flat[i]
         y = norm_params_b_flat[j]
-        z = jnp.multiply(x[jnp.newaxis], y[jnp.newaxis].T)
-        z = z[zi_triu_up]
+        Z = jnp.multiply(x[jnp.newaxis], y[jnp.newaxis].T)
+        z = Z[zi_triu_up] + Z.T[zi_triu_up]
         z_ij = jnp.matmul(z, h_xy_flat)
         huckel_matrix = huckel_matrix.at[i, j].set(z_ij)
 

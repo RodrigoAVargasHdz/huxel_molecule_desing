@@ -44,7 +44,7 @@ def main():
     parser.add_argument("--obj", type=str,
                         default="homo_lumo", help="objective type")
     parser.add_argument("--opt", type=str, default="BFGS",
-                        help="optimizer name", choices=['BGFS', 'Adam', 'GD'],)
+                        help="optimizer name", choices=['BFGS', 'Adam', 'GD'],)
     parser.add_argument("--extfield", type=float, default=0.,
                         help="external field for polarization")
 
