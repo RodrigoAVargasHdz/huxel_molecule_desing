@@ -1,4 +1,4 @@
-# Molecule inverse design with automatic differentiation: Hückel + JAX
+# Inverse molecular design with automatic differentiation: Hückel + JAX
 
 Using JAX we optimize the type of atoms given an adjacency matrix of a molecular graph and the target observable. All observables were computed with the Hückel model.
 
