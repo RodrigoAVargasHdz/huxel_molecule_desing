@@ -22,6 +22,7 @@ from huxel.minimize import opt_obj
 from jax.config import config
 
 jax.config.update("jax_enable_x64", True)
+jax.config.update("jax_debug_nans", True)
 
 
 def _optimization_molec(l: int,

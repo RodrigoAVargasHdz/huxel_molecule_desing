@@ -174,8 +174,13 @@ def _f_obj(objective: str) -> callable:
     elif objective == 'polarizability':
         def wrapper(params_b: Any, *args):
             args_new = {**params_b, **args[0]}
-            # return f_energy(args_new, *args[1:])
             return -f_polarizability(args_new, *args[1:])
+            # return f_energy(args_new, *args[1:])
+        return wrapper
+    elif objective == 'energy':
+        def wrapper(params_b: Any, *args):
+            args_new = {**params_b, **args[0]}
+            return f_energy(args_new, *args[1:])
         return wrapper
 
 

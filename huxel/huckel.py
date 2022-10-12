@@ -33,7 +33,7 @@ def f_homo_lumo_gap(params_b: dict, params_extra: dict, molecule: myMolecule, f_
     h_m, e_ = extra
     y_pred = params_extra["hl_params"]["a"] * \
         z_pred + params_extra["hl_params"]["b"]
-    return jnp.sum(y_pred)  # , h_m  # , (z_pred, extra)
+    return jnp.sum(y_pred), h_m  # , (z_pred, extra)
 
 
 def _homo_lumo_gap(params_b: dict, params_extra: dict, molecule: Any, f_beta: callable) -> Tuple:
@@ -132,7 +132,7 @@ def f_energy(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: c
     n_orbitals = h_m.shape[0]
     occupations, spin_occupations, n_occupied, n_unpaired = _set_occupations(
         jax.lax.stop_gradient(electrons), jax.lax.stop_gradient(e_), jax.lax.stop_gradient(n_orbitals))
-    return jnp.dot(occupations, e_)  # , h_m
+    return jnp.dot(occupations, e_), h_m
 
 
 # -------
