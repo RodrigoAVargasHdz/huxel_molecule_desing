@@ -9,6 +9,10 @@ from huxel.parameters import H_X, N_ELECTRONS, H_X, H_XY
 from huxel.molecule import myMolecule
 from huxel.beta_functions import _f_beta
 
+import itertools as it
+from collections import defaultdict
+from jax.util import unzip2
+
 from typing import Any, Tuple
 
 
@@ -132,74 +136,6 @@ def f_energy(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: c
 
 
 # -------
-def _construct_huckel_matrix_test(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: callable) -> Tuple:
-    """Hückel matrix
-
-    Args:
-        params_b (dict): type of atoms
-        params_extra (dict): additional parameters (Hückel model)
-        molecule (myMolecule): molecule class
-        f_beta (callable): atom-atom interaction
-
-    Returns:
-        Tuple: Hückel matrix, number of electrons
-    """
-
-    # atom_types,conectivity_matrix = molecule
-    atom_types = molecule.atom_types
-    connectivity_matrix = molecule.connectivity_matrix
-    # dm = molecule.dm
-
-    h_x = params_extra["h_x"]
-    h_xy = params_extra["h_xy"]
-    print([key for _, key in enumerate(h_xy)])
-    one_pi_elec = params_extra["one_pi_elec"]
-    print(one_pi_elec)
-
-    h_xy_flat, h_xy_tree = tree_flatten(h_xy)
-    h_xy_flat = jnp.asarray(h_xy_flat)
-    h_x_flat, h_x_tree = tree_flatten(h_x)
-    h_x_flat = jnp.asarray(h_x_flat)
-
-    norm_params_b = jax.tree_map(lambda x: softmax(x), params_b)
-    norm_params_b_flat, norm_params_b_tree = tree_flatten(norm_params_b)
-    norm_params_b_flat = jnp.array(norm_params_b_flat)
-    huckel_matrix = jnp.zeros_like(connectivity_matrix, dtype=jnp.float32)
-
-    # norm_params_b[0].shape[0]
-    zi_triu_up = jnp.triu_indices(norm_params_b[0].shape[0], 0)
-    print(connectivity_matrix)
-    print(jnp.nonzero(connectivity_matrix))
-    # off diagonal terms
-    for i, j in zip(*jnp.nonzero(connectivity_matrix)):
-        print(i, j)
-        x = norm_params_b_flat[i]
-        y = norm_params_b_flat[j]
-        print(x, y)
-        Z = jnp.multiply(x[jnp.newaxis], y[jnp.newaxis].T)
-        print(Z)
-        z = Z[zi_triu_up]
-        zt = Z.T[zi_triu_up]
-        z = z + zt
-        print(z)
-        print(zt)
-        print(h_xy_flat)
-        z_ij = jnp.matmul(z, h_xy_flat)
-        print(z_ij)
-        huckel_matrix = huckel_matrix.at[i, j].set(z_ij)
-        # huckel_matrix = huckel_matrix.at[i, j].set(1.)
-        # assert 0
-
-    # diagonal terms
-    for i, c in enumerate(atom_types):
-        z = jnp.vdot(h_x_flat, norm_params_b[i])
-        huckel_matrix = huckel_matrix.at[i, i].set(z)
-
-    electrons = _electrons(atom_types)
-
-    return huckel_matrix, electrons
-
-
 def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: callable) -> Tuple:
     """Hückel matrix
 
@@ -222,7 +158,8 @@ def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMol
     h_xy = params_extra["h_xy"]
     one_pi_elec = params_extra["one_pi_elec"]
 
-    h_xy_flat, h_xy_tree = tree_flatten(h_xy)
+    # h_xy_flat, h_xy_tree = tree_flatten(h_xy)
+    h_xy_flat, h_xy_tree = flatten_mytuple(h_xy)
     h_xy_flat = jnp.asarray(h_xy_flat)
     h_x_flat, h_x_tree = tree_flatten(h_x)
     h_x_flat = jnp.asarray(h_x_flat)
@@ -234,16 +171,21 @@ def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMol
 
     # norm_params_b[0].shape[0]
     zi_triu_up = jnp.triu_indices(norm_params_b[0].shape[0], 0)
+    zi_ones = jnp.ones((norm_params_b[0].shape[0], norm_params_b[0].shape[0]))
+    zi_diag_idx = jnp.diag_indices_from(zi_ones)
     # off diagonal terms
     for i, j in zip(*jnp.nonzero(connectivity_matrix)):
         x = norm_params_b_flat[i]
         y = norm_params_b_flat[j]
         Z = jnp.multiply(x[jnp.newaxis], y[jnp.newaxis].T)
+        # diag elements (1/2) avoid double counting
+        Z = Z.at[zi_diag_idx].divide(2)
         z = Z[zi_triu_up] + Z.T[zi_triu_up]
         z_ij = jnp.matmul(z, h_xy_flat)
         huckel_matrix = huckel_matrix.at[i, j].set(z_ij)
 
     # diagonal terms
+    h_all_flat, h_all_tree = tree_flatten(params_extra)
     for i, c in enumerate(atom_types):
         z = jnp.vdot(h_x_flat, norm_params_b[i])
         huckel_matrix = huckel_matrix.at[i, i].set(z)
@@ -373,6 +315,27 @@ def _set_occupations(electrons: int, energies: Any, n_orbitals: int) -> Tuple:
         jnp.sum(occupations[:n_occupied][occupations[:n_occupied] != 2]))
     return occupations, spin_occupations, n_occupied, n_unpaired
 
+
+def flatten_mytuple(x: Any) -> Tuple:
+    """
+    Flatten pytree with the order of print
+    based on https://github.com/google/jax/issues/7919
+
+    Args:
+        x (Any): pytree
+
+    Returns:
+        Tuple: list, extra
+    """
+    counts = it.count()
+    id_to_name = defaultdict(lambda: next(counts))
+    # name_list = [id_to_name[id(e)] for e in x.elts]
+    name_list = [k for i, k in enumerate(x)]
+    # {id(e): e for e in x.elts}
+    uniques = {id(k): x[k] for i, k in enumerate(x)}
+    unique_names, unique_vals = unzip2(
+        (id_to_name[i], v) for i, v in uniques.items())
+    return list(unique_vals), (unique_names, name_list)
 
 # ------------------------
 # TEST
