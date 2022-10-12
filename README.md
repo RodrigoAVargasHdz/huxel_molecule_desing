@@ -2,8 +2,6 @@
 
 Using JAX we optimize the type of atoms given an adjacency matrix of a molecular graph and the target observable. All observables were computed with the Hückel model.
 
-<!-- Otpimization of HOMO-LUMO gap ($\epsilon_{HL}$), and polarizability ($\langle \alpha\rangle$),
- -->
 Otpimization of HOMO-LUMO gap ![equation](https://latex.codecogs.com/svg.image?\epsilon_{HL}), and polarizability ![equation](https://latex.codecogs.com/svg.image?\langle&space;\alpha\rangle),
 
 <p align="center">
