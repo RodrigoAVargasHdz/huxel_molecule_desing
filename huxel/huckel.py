@@ -9,6 +9,10 @@ from huxel.parameters import H_X, N_ELECTRONS, H_X, H_XY
 from huxel.molecule import myMolecule
 from huxel.beta_functions import _f_beta
 
+import itertools as it
+from collections import defaultdict
+from jax.util import unzip2
+
 from typing import Any, Tuple
 
 
@@ -26,9 +30,10 @@ def f_homo_lumo_gap(params_b: dict, params_extra: dict, molecule: myMolecule, f_
     """
 
     z_pred, extra = _homo_lumo_gap(params_b, params_extra, molecule, f_beta)
+    h_m, e_ = extra
     y_pred = params_extra["hl_params"]["a"] * \
         z_pred + params_extra["hl_params"]["b"]
-    return jnp.sum(y_pred)  # , (z_pred, extra)
+    return jnp.sum(y_pred), h_m  # , (z_pred, extra)
 
 
 def _homo_lumo_gap(params_b: dict, params_extra: dict, molecule: Any, f_beta: callable) -> Tuple:
@@ -59,7 +64,7 @@ def _homo_lumo_gap(params_b: dict, params_extra: dict, molecule: Any, f_beta: ca
     homo_energy = e_[homo_idx]
     lumo_energy = e_[lumo_idx]
     val = lumo_energy - homo_energy
-    return val, (h_m, e_)
+    return jnp.sum(val), (h_m, e_)
 
 # -----------------------------------------------------------------------------
 
@@ -127,7 +132,7 @@ def f_energy(params_b: dict, params_extra: dict, molecule: myMolecule, f_beta: c
     n_orbitals = h_m.shape[0]
     occupations, spin_occupations, n_occupied, n_unpaired = _set_occupations(
         jax.lax.stop_gradient(electrons), jax.lax.stop_gradient(e_), jax.lax.stop_gradient(n_orbitals))
-    return jnp.dot(occupations, e_)
+    return jnp.dot(occupations, e_), h_m
 
 
 # -------
@@ -153,7 +158,8 @@ def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMol
     h_xy = params_extra["h_xy"]
     one_pi_elec = params_extra["one_pi_elec"]
 
-    h_xy_flat, h_xy_tree = tree_flatten(h_xy)
+    # h_xy_flat, h_xy_tree = tree_flatten(h_xy)
+    h_xy_flat, h_xy_tree = flatten_mytuple(h_xy)
     h_xy_flat = jnp.asarray(h_xy_flat)
     h_x_flat, h_x_tree = tree_flatten(h_x)
     h_x_flat = jnp.asarray(h_x_flat)
@@ -163,17 +169,23 @@ def _construct_huckel_matrix(params_b: dict, params_extra: dict, molecule: myMol
     norm_params_b_flat = jnp.array(norm_params_b_flat)
     huckel_matrix = jnp.zeros_like(connectivity_matrix, dtype=jnp.float32)
 
+    # norm_params_b[0].shape[0]
     zi_triu_up = jnp.triu_indices(norm_params_b[0].shape[0], 0)
+    zi_ones = jnp.ones((norm_params_b[0].shape[0], norm_params_b[0].shape[0]))
+    zi_diag_idx = jnp.diag_indices_from(zi_ones)
     # off diagonal terms
     for i, j in zip(*jnp.nonzero(connectivity_matrix)):
         x = norm_params_b_flat[i]
         y = norm_params_b_flat[j]
-        z = jnp.multiply(x[jnp.newaxis], y[jnp.newaxis].T)
-        z = z[zi_triu_up]
+        Z = jnp.multiply(x[jnp.newaxis], y[jnp.newaxis].T)
+        # diag elements (1/2) avoid double counting
+        Z = Z.at[zi_diag_idx].divide(2)
+        z = Z[zi_triu_up] + Z.T[zi_triu_up]
         z_ij = jnp.matmul(z, h_xy_flat)
         huckel_matrix = huckel_matrix.at[i, j].set(z_ij)
 
     # diagonal terms
+    h_all_flat, h_all_tree = tree_flatten(params_extra)
     for i, c in enumerate(atom_types):
         z = jnp.vdot(h_x_flat, norm_params_b[i])
         huckel_matrix = huckel_matrix.at[i, i].set(z)
@@ -303,6 +315,27 @@ def _set_occupations(electrons: int, energies: Any, n_orbitals: int) -> Tuple:
         jnp.sum(occupations[:n_occupied][occupations[:n_occupied] != 2]))
     return occupations, spin_occupations, n_occupied, n_unpaired
 
+
+def flatten_mytuple(x: Any) -> Tuple:
+    """
+    Flatten pytree with the order of print
+    based on https://github.com/google/jax/issues/7919
+
+    Args:
+        x (Any): pytree
+
+    Returns:
+        Tuple: list, extra
+    """
+    counts = it.count()
+    id_to_name = defaultdict(lambda: next(counts))
+    # name_list = [id_to_name[id(e)] for e in x.elts]
+    name_list = [k for i, k in enumerate(x)]
+    # {id(e): e for e in x.elts}
+    uniques = {id(k): x[k] for i, k in enumerate(x)}
+    unique_names, unique_vals = unzip2(
+        (id_to_name[i], v) for i, v in uniques.items())
+    return list(unique_vals), (unique_names, name_list)
 
 # ------------------------
 # TEST

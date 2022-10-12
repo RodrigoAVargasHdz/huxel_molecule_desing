@@ -22,6 +22,7 @@ from huxel.minimize import opt_obj
 from jax.config import config
 
 jax.config.update("jax_enable_x64", True)
+jax.config.update("jax_debug_nans", True)
 
 
 def _optimization_molec(l: int,
@@ -76,6 +77,7 @@ def _optimization_molec(l: int,
 
     def f_obj(w): return f_obj_all(w, params_fixed_atoms,
                                    params_extra, molec, f_beta, external_field)
+
     y_obj_initial = f_obj(params_b)
 
     # minimize

@@ -16,7 +16,7 @@ from huxel.parameters import h_x_tree, h_x_flat, h_xy_tree, h_xy_flat, r_xy_tree
 from huxel.parameters import f_dif_pytrees, f_div_pytrees, f_mult_pytrees, f_sum_pytrees
 from huxel.parameters import au_to_eV, Bohr_to_AA
 
-from huxel.huckel import f_homo_lumo_gap, f_polarizability
+from huxel.huckel import f_energy, f_homo_lumo_gap, f_polarizability
 
 PRNGKey = Any
 
@@ -175,6 +175,12 @@ def _f_obj(objective: str) -> callable:
         def wrapper(params_b: Any, *args):
             args_new = {**params_b, **args[0]}
             return -f_polarizability(args_new, *args[1:])
+            # return f_energy(args_new, *args[1:])
+        return wrapper
+    elif objective == 'energy':
+        def wrapper(params_b: Any, *args):
+            args_new = {**params_b, **args[0]}
+            return f_energy(args_new, *args[1:])
         return wrapper
 
 

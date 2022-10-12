@@ -37,14 +37,14 @@ def get_jcp_molecule_data(smile_i: int = 2) -> Tuple:
 def main():
     parser = argparse.ArgumentParser(
         description="molecular inverse design Huckel with JAX")
-    parser.add_argument("--s", type=int, default=3,
+    parser.add_argument("--s", type=int, default=2,
                         help="smile integer, range [1 to 8]", choices=[1, 2, 3, 4, 5, 6, 7, 8],)
     parser.add_argument("--l", type=int, default=0, help="label")
     # parser.add_argument("--lr", type=float, default=2e-2, help="learning rate")
     parser.add_argument("--obj", type=str,
                         default="homo_lumo", help="objective type")
     parser.add_argument("--opt", type=str, default="BFGS",
-                        help="optimizer name", choices=['BGFS', 'Adam', 'GD'],)
+                        help="optimizer name", choices=['BFGS', 'Adam', 'GD'],)
     parser.add_argument("--extfield", type=float, default=0.,
                         help="external field for polarization")
 
